@@ -1084,10 +1084,12 @@ html, body {
       <span id="peer-status-text">Connected</span>
     </div>
     <div class="header-right">
-      <button class="btn-icon" onclick="toggleTheme()" title="Toggle Dark Mode" style="margin-right:8px;">
-        <span class="material-icons-round theme-icon">dark_mode</span>
+      <button class="btn-icon" id="header-voice-btn" onclick="placeCall('audio')" title="Voice Call" style="margin-right:4px;">
+        <span class="material-icons-round">call</span>
       </button>
-      <div class="session-code-chip" id="session-code-chip" onclick="copySessionCode()" title="Click to copy code"></div>
+      <button class="btn-icon" id="header-video-btn" onclick="placeCall('video')" title="Video Call" style="margin-right:8px;">
+        <span class="material-icons-round">videocam</span>
+      </button>
       <button class="btn-icon btn-danger" onclick="endSession()" title="End session">
         <span class="material-icons-round">close</span>
       </button>
@@ -1100,6 +1102,12 @@ html, body {
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
+      <div class="sidebar-section" style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="session-code-chip" id="session-code-chip" onclick="copySessionCode()" title="Click to copy code" style="font-size: 13px; padding: 6px 16px;"></div>
+        <button class="btn-icon" onclick="toggleTheme()" title="Toggle Dark Mode">
+          <span class="material-icons-round theme-icon">dark_mode</span>
+        </button>
+      </div>
       <div class="sidebar-section">
         <div class="sidebar-label">Connection</div>
         <div class="conn-quality">
@@ -1271,6 +1279,45 @@ html, body {
   <button class="btn-icon lightbox-close" onclick="closeLightbox()">
     <span class="material-icons-round">close</span>
   </button>
+</div>
+
+<!-- Call Widget -->
+<div id="call-widget" class="hidden" style="position: absolute; top: 80px; right: 20px; z-index: 50; background: var(--glass-hi); backdrop-filter: blur(12px); border: 1px solid var(--border-hi); border-radius: var(--radius-lg); box-shadow: var(--shadow-glass); overflow: hidden; width: 280px; transition: all 0.3s ease; display: flex; flex-direction: column;">
+  <div id="call-video-container" style="position: relative; width: 100%; aspect-ratio: 4/3; background: #000; display: none;">
+    <video id="remote-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+    <video id="local-video" autoplay playsinline muted style="position: absolute; bottom: 8px; right: 8px; width: 80px; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.3); background: #222;"></video>
+  </div>
+  <div id="call-audio-container" style="padding: 24px; text-align: center; display: none;">
+    <div style="font-size: 48px; animation: peerPulse 2s infinite;">📞</div>
+    <div style="font-weight: 600; margin-top: 12px; color: var(--text);">Voice Call Active</div>
+    <div id="call-duration" style="font-size: 12px; color: var(--text-2); font-family: var(--mono); margin-top: 4px;">00:00</div>
+  </div>
+  <div style="display: flex; gap: 12px; justify-content: center; padding: 12px; background: var(--bg2);">
+    <button class="btn-icon" id="btn-call-mute" onclick="toggleCallMute()" style="background: var(--bg); border: 1px solid var(--border);">
+      <span class="material-icons-round" id="icon-call-mute">mic</span>
+    </button>
+    <button class="btn-icon" id="btn-call-video" onclick="toggleCallVideo()" style="background: var(--bg); border: 1px solid var(--border);">
+      <span class="material-icons-round" id="icon-call-video">videocam</span>
+    </button>
+    <button class="btn-icon btn-danger" onclick="endCall()">
+      <span class="material-icons-round">call_end</span>
+    </button>
+  </div>
+</div>
+
+<!-- Incoming Call Modal -->
+<div class="modal-backdrop" id="incoming-call-modal">
+  <div class="modal-box" style="max-width: 320px; text-align: center;">
+    <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(0,212,170,0.1); color: var(--accent); display: flex; align-items: center; justify-content: center; margin: 0 auto; margin-bottom: 16px; animation: peerPulse 1.5s infinite;">
+      <span class="material-icons-round" style="font-size: 32px;" id="incoming-call-icon">call</span>
+    </div>
+    <h3 style="margin-bottom: 8px;">Incoming Call</h3>
+    <p style="font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 24px;">Your peer is requesting a <span id="incoming-call-type">voice</span> call.</p>
+    <div style="display: flex; gap: 12px; width: 100%;">
+      <button class="btn btn-ghost flex-1" style="color: var(--error);" onclick="declineCall()">Decline</button>
+      <button class="btn btn-accent flex-1" onclick="acceptCall()">Accept</button>
+    </div>
+  </div>
 </div>
 
 <!-- Toast container -->
@@ -1508,7 +1555,12 @@ function initPeer(customId){
     const peer=new Peer(id,getPeerConfig());
     let resolved=false;
     const t=setTimeout(()=>{if(!resolved){peer.destroy();reject(new Error('Signaling timeout. Check internet.'));}},30000);
-    peer.on('open',()=>{resolved=true;clearTimeout(t);resolve(peer);});
+    peer.on('open',()=>{
+      resolved=true;
+      clearTimeout(t);
+      peer.on('call', handleIncomingCall);
+      resolve(peer);
+    });
     peer.on('error',err=>{
       if(resolved)return; clearTimeout(t);
       if(err.type==='unavailable-id'){peer.destroy();initPeer().then(resolve).catch(reject);return;}
@@ -1741,6 +1793,136 @@ function assembleFile(id){
   updateFileComplete(id,{name:pr.meta.name,size:blob.size,mime:pr.meta.mime,url});
   addToSidebar({id, name:pr.meta.name, size:blob.size, mime:pr.meta.mime, url});
   delete pendingReceives[id];
+}
+
+// ── CALLING ──────────────────────────────────────────────────
+let currentCall = null;
+let localStream = null;
+let callDurationInterval = null;
+let callSeconds = 0;
+let incomingCallObj = null;
+
+async function placeCall(type) {
+  if(!myPeer || !sessionConn || !sessionConn.open) { toast('Not connected to a peer.', 'error'); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+    localStream = stream;
+    const call = myPeer.call(sessionConn.peer, stream, { metadata: { type } });
+    setupCall(call, type, true);
+  } catch(err) {
+    toast('Could not access camera/microphone.', 'error');
+  }
+}
+
+function setupCall(call, type, isInitiator) {
+  currentCall = call;
+  el('call-widget').classList.remove('hidden');
+  
+  if (type === 'video') {
+    el('call-video-container').style.display = 'block';
+    el('call-audio-container').style.display = 'none';
+    el('local-video').srcObject = localStream;
+    el('icon-call-video').textContent = 'videocam';
+  } else {
+    el('call-video-container').style.display = 'none';
+    el('call-audio-container').style.display = 'block';
+    el('icon-call-video').parentElement.style.display = 'none';
+  }
+
+  call.on('stream', remoteStream => {
+    if (type === 'video') el('remote-video').srcObject = remoteStream;
+  });
+
+  call.on('close', () => {
+    cleanupCallUI();
+  });
+
+  // Start duration timer
+  callSeconds = 0;
+  el('call-duration').textContent = '00:00';
+  clearInterval(callDurationInterval);
+  callDurationInterval = setInterval(() => {
+    callSeconds++;
+    const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+    const s = (callSeconds % 60).toString().padStart(2, '0');
+    el('call-duration').textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+function handleIncomingCall(call) {
+  incomingCallObj = call;
+  const type = call.metadata?.type || 'voice';
+  el('incoming-call-type').textContent = type;
+  el('incoming-call-icon').textContent = type === 'video' ? 'videocam' : 'call';
+  el('incoming-call-modal').classList.add('open');
+}
+
+async function acceptCall() {
+  if (!incomingCallObj) return;
+  el('incoming-call-modal').classList.remove('open');
+  const type = incomingCallObj.metadata?.type || 'voice';
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+    localStream = stream;
+    incomingCallObj.answer(stream);
+    setupCall(incomingCallObj, type, false);
+    incomingCallObj = null;
+  } catch(err) {
+    toast('Could not access camera/microphone.', 'error');
+    incomingCallObj.close();
+    incomingCallObj = null;
+  }
+}
+
+function declineCall() {
+  if (incomingCallObj) {
+    incomingCallObj.close();
+    incomingCallObj = null;
+  }
+  el('incoming-call-modal').classList.remove('open');
+}
+
+function endCall() {
+  if (currentCall) {
+    currentCall.close();
+  }
+  cleanupCallUI();
+}
+
+function cleanupCallUI() {
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+  }
+  clearInterval(callDurationInterval);
+  el('call-widget').classList.add('hidden');
+  el('remote-video').srcObject = null;
+  el('local-video').srcObject = null;
+  currentCall = null;
+}
+
+let callMuted = false;
+function toggleCallMute() {
+  if (!localStream) return;
+  const audioTrack = localStream.getAudioTracks()[0];
+  if (audioTrack) {
+    callMuted = !callMuted;
+    audioTrack.enabled = !callMuted;
+    el('icon-call-mute').textContent = callMuted ? 'mic_off' : 'mic';
+    el('btn-call-mute').style.color = callMuted ? 'var(--error)' : '';
+  }
+}
+
+let callVideoOff = false;
+function toggleCallVideo() {
+  if (!localStream) return;
+  const videoTrack = localStream.getVideoTracks()[0];
+  if (videoTrack) {
+    callVideoOff = !callVideoOff;
+    videoTrack.enabled = !callVideoOff;
+    el('icon-call-video').textContent = callVideoOff ? 'videocam_off' : 'videocam';
+    el('btn-call-video').style.color = callVideoOff ? 'var(--error)' : '';
+  }
 }
 
 // ── AUDIO RECORDING ──────────────────────────────────────────
