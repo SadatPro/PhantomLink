@@ -412,6 +412,31 @@ html, body {
 .peer-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: peerPulse 2s ease-in-out infinite; }
 @keyframes peerPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 .peer-dot.offline { background: var(--text-3); box-shadow: none; animation: none; }
+.peer-status.offline-clickable {
+  cursor: pointer;
+  background: rgba(220,38,38,0.1) !important;
+  border-color: rgba(220,38,38,0.3) !important;
+  box-shadow: none !important;
+  transition: var(--transition);
+}
+.peer-status.offline-clickable:hover {
+  background: rgba(220,38,38,0.2) !important;
+  border-color: var(--error) !important;
+  transform: translateX(-50%) scale(1.04);
+}
+.peer-status.offline-clickable:active {
+  transform: translateX(-50%) scale(0.98);
+}
+.peer-status.reconnecting-state {
+  background: var(--primary-dim) !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 4px 16px var(--primary-glow) !important;
+}
+.peer-dot.reconnecting {
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+  animation: peerPulse 1s ease-in-out infinite;
+}
 .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .session-code-chip {
   font-family: var(--mono); font-size: 11px; font-weight: 600;
@@ -1168,7 +1193,7 @@ html, body {
     <div onclick="toggleSidebar()" style="display:flex;align-items:center;gap:16px;cursor:pointer" title="Toggle files panel">
       <div class="session-title">Phantom<span>Link</span></div>
     </div>
-    <div class="peer-status" id="peer-status-chip">
+    <div class="peer-status" id="peer-status-chip" onclick="handleStatusChipClick()">
       <div class="peer-dot" id="peer-dot"></div>
       <span id="peer-status-text">Connected</span>
     </div>
@@ -1454,6 +1479,7 @@ const BUFFER_HIGH  = 2    * 1024 * 1024;
 // ── STATE ────────────────────────────────────────────────────
 let myPeer       = null;
 let sessionConn  = null;
+let lastPeerId   = null;
 let isHost       = false;
 let myCode       = '';
 let qrScanner    = null;
@@ -1505,9 +1531,22 @@ function getPeerConfig(){
     config:{ iceServers:[
       {urls:'stun:stun.l.google.com:19302'},
       {urls:'stun:stun1.l.google.com:19302'},
+      {urls:'stun:stun2.l.google.com:19302'},
       {urls:'stun:stun.cloudflare.com:3478'},
-      {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}
-    ]}
+      {
+        urls:[
+          'turn:openrelay.metered.ca:80',
+          'turn:openrelay.metered.ca:443',
+          'turn:openrelay.metered.ca:443?transport=tcp',
+          'turns:openrelay.metered.ca:443',
+          'turns:openrelay.metered.ca:443?transport=tcp'
+        ],
+        username:'openrelayproject',
+        credential:'openrelayproject'
+      }
+    ],
+    iceCandidatePoolSize: 10
+    }
   };
 }
 
@@ -1646,9 +1685,9 @@ function backToChoice(){
 function cancelCreate(){ backToChoice(); }
 
 // ── HOST: INIT PEER ──────────────────────────────────────────
-async function startHostPeer(){
+async function startHostPeer(existingCode){
   isHost=true;
-  const code=genCode(); myCode=code;
+  const code=existingCode||genCode(); myCode=code;
   const codeEl=el('create-code-value');
   codeEl.classList.add('loading'); codeEl.textContent='······';
 
@@ -1657,11 +1696,11 @@ async function startHostPeer(){
     codeEl.classList.remove('loading');
     codeEl.textContent=code;
     el('session-code-chip').textContent=code;
-    // Generate QR lazily on first show
-    myPeer.on('connection',conn=>{
-      el('create-wait-text').textContent='Connecting…';
-      setupConn(conn);
-    });
+
+    // Save session info to localStorage
+    localStorage.setItem('phantomlink-last-code', code);
+    localStorage.setItem('phantomlink-last-is-host', 'true');
+
     myPeer.on('disconnected',()=>{try{myPeer.reconnect();}catch(e){}});
     myPeer.on('error',err=>{ toast('Server error: '+err.type,'error'); });
   }catch(e){
@@ -1680,6 +1719,11 @@ function initPeer(customId){
       resolved=true;
       clearTimeout(t);
       peer.on('call', handleIncomingCall);
+      peer.on('connection',conn=>{
+        const waitTxt = el('create-wait-text');
+        if(waitTxt) waitTxt.textContent='Connecting…';
+        setupConn(conn);
+      });
       resolve(peer);
     });
     peer.on('error',err=>{
@@ -1740,7 +1784,11 @@ async function doJoin(){
     setJoinStatus('error',e.message);
     return;
   }
-  const conn=myPeer.connect(code,{reliable:true,serialization:'binary'});
+  // Save session info to localStorage
+  localStorage.setItem('phantomlink-last-code', code);
+  localStorage.setItem('phantomlink-last-is-host', 'false');
+
+  const conn=myPeer.connect(code,{reliable:false,serialization:'binary'});
   setupConn(conn);
   myPeer.on('error',err=>{
     hideConnecting();
@@ -1771,6 +1819,7 @@ function hideConnecting(){ el('connecting-overlay').classList.add('hidden'); }
 // ── CONNECTION SETUP (both host and guest) ────────────────────
 function setupConn(conn){
   sessionConn=conn;
+  lastPeerId=conn.peer;
 
   if(isHost){ showConnecting('Peer is joining…','Establishing secure channel'); }
 
@@ -1822,9 +1871,62 @@ function onSessionOpen(){
   }
 }
 
+function handleStatusChipClick() {
+  const chip = el('peer-status-chip');
+  if (chip && chip.classList.contains('offline-clickable')) {
+    attemptReconnection();
+  }
+}
+
+async function attemptReconnection() {
+  const chip = el('peer-status-chip');
+  if (chip) {
+    chip.className = 'peer-status reconnecting-state';
+    chip.title = '';
+  }
+  const text = el('peer-status-text');
+  if (text) text.textContent = 'Reconnecting…';
+  const dot = el('peer-dot');
+  if (dot) dot.className = 'peer-dot reconnecting';
+
+  toast('Attempting to reconnect...', 'info');
+
+  // 1. Ensure myPeer is active
+  if (!myPeer || myPeer.destroyed) {
+    try {
+      myPeer = await initPeer(isHost ? myCode : null);
+    } catch (e) {
+      toast('Reconnection failed: ' + e.message, 'error');
+      markPeerOffline();
+      return;
+    }
+  } else if (myPeer.disconnected) {
+    try {
+      myPeer.reconnect();
+    } catch (e) {}
+  }
+
+  // 2. Determine who to connect to
+  const targetId = isHost ? lastPeerId : myCode;
+  if (!targetId) {
+    toast('No peer history to reconnect to.', 'error');
+    markPeerOffline();
+    return;
+  }
+
+  // 3. Connect
+  const conn = myPeer.connect(targetId, { reliable: false, serialization: 'binary' });
+  setupConn(conn);
+}
+
 function markPeerOffline(){
   el('peer-dot').className='peer-dot offline';
   el('peer-status-text').textContent='Disconnected';
+  const chip = el('peer-status-chip');
+  if (chip) {
+    chip.classList.add('offline-clickable');
+    chip.title = 'Click to reconnect';
+  }
 }
 
 // ── DATA HANDLER ──────────────────────────────────────────────
@@ -1905,7 +2007,11 @@ function handleCtrl(obj){
       theirEmoji = obj.emoji || '🐯';
       if (obj.name) theirName = obj.name;
       const chip = el('peer-status-chip');
-      chip.innerHTML = `<div class="peer-dot" id="peer-dot"></div><span id="peer-status-text" title="${escapeHtml(theirName)}">${theirEmoji} ${escapeHtml(theirName)}</span>`;
+      if (chip) {
+        chip.className = 'peer-status';
+        chip.title = '';
+        chip.innerHTML = `<div class="peer-dot" id="peer-dot"></div><span id="peer-status-text" title="${escapeHtml(theirName)}">${theirEmoji} ${escapeHtml(theirName)}</span>`;
+      }
       // Reply if needed
       if(!obj.reply) ctrl({type:'peer-info', emoji:myEmoji, name:myName, reply:true});
       break;
