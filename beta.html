@@ -1,0 +1,2678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>PhantomLink — Secure P2P Session</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.2/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════
+   DESIGN TOKENS — LIGHT MODE
+═══════════════════════════════════════════════════ */
+:root {
+  --bg:          #ffffff;
+  --bg2:         #dddcdc;
+  --bg3:         #F8FAFF;
+  --glass:       rgba(255,255,255,0.70);
+  --glass-md:    rgba(255,255,255,0.85);
+  --glass-hi:    rgba(255,255,255,0.96);
+  --border:      rgba(100,120,200,0.12);
+  --border-hi:   rgba(100,120,200,0.22);
+  --primary:     #00d9ff;
+  --primary-dim: rgba(37,99,235,0.10);
+  --primary-glow:rgba(37,99,235,0.25);
+  --accent:      #000000;
+  --accent-dim:  rgba(8,145,178,0.10);
+  --purple:      #7C3AED;
+  --purple-dim:  rgba(124,58,237,0.10);
+  --error:       #DC2626;
+  --warn:        #D97706;
+  --text:        #0F172A;
+  --text-2:      #475569;
+  --text-3:      #adabab;
+  --radius-sm:   10px;
+  --radius-md:   16px;
+  --radius-lg:   24px;
+  --radius-xl:   32px;
+  --radius-full: 9999px;
+  --font:        'Outfit', system-ui, sans-serif;
+  --mono:        'JetBrains Mono', monospace;
+  --shadow-glass:0 4px 24px rgba(37,99,235,0.08), 0 1px 4px rgba(0,0,0,0.04);
+  --shadow-card: 0 8px 32px rgba(15,23,42,0.08), 0 1px 4px rgba(0,0,0,0.04);
+  --transition:  all 0.3s cubic-bezier(0.16,1,0.3,1);
+}
+
+[data-theme="dark"] {
+  --bg:          #0b0b0c;
+  --bg2:         #1F2937;
+  --bg3:         #070a0f;
+  --glass:       rgba(17, 24, 39, 0.50);
+  --glass-md:    rgba(31, 41, 55, 0.60);
+  --glass-hi:    rgba(17, 24, 39, 0.80);
+  --border:      rgba(255,255,255,0.06);
+  --border-hi:   rgba(255,255,255,0.12);
+  --primary:     #00e7c1;
+  --primary-dim: rgba(74,222,128,0.15);
+  --primary-glow:rgba(74,222,128,0.25);
+  --accent:      #ffffff;
+  --accent-dim:  rgba(255, 255, 255, 0.15);
+  --purple:      #a78bfa;
+  --purple-dim:  rgba(167,139,250,0.15);
+  --error:       #ec5252;
+  --warn:        #fbbf24;
+  --text:        #fcfcfc;
+  --text-2:      #dddada;
+  --text-3:      #b3b5b6;
+  --shadow-glass:0 4px 24px rgba(0,0,0,0.3), 0 1px 4px rgba(0,0,0,0.15);
+  --shadow-card: 0 8px 32px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.15);
+}
+
+.theme-toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--glass-md);
+  border: 1px solid var(--border-hi);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: var(--shadow-glass);
+}
+
+*,*::before,*::after { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(37,99,235,0.18); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(37,99,235,0.32); }
+
+/* ── ANIMATED LIVING BACKGROUND ── */
+.mesh-bg {
+  position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+}
+.orb {
+  position: absolute; border-radius: 50%; filter: blur(80px);
+  animation: orbDrift linear infinite alternate; opacity: 0.5;
+}
+.orb-1 {
+  width: 500px; height: 500px; background: rgba(37,99,235,0.15);
+  top: -150px; left: -150px; animation-duration: 25s;
+}
+.orb-2 {
+  width: 600px; height: 600px; background: rgba(124,58,237,0.12);
+  bottom: -200px; right: -150px; animation-duration: 30s; animation-direction: alternate-reverse;
+}
+.orb-3 {
+  width: 400px; height: 400px; background: rgba(8,145,178,0.1);
+  top: 40%; left: 30%; animation-duration: 20s;
+}
+@keyframes orbDrift {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(120px, -60px) scale(1.1); }
+  100% { transform: translate(-60px, 120px) scale(0.9); }
+}
+@keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── GLASS CARD ── */
+.glass {
+  background: var(--glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+}
+.glass-md {
+  background: var(--glass-md);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-glass);
+}
+
+/* ════════════════════════════════════════
+   SCREEN SYSTEM
+════════════════════════════════════════ */
+.screen {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16,1,0.3,1);
+}
+.screen.hidden {
+  opacity: 0; pointer-events: none; transform: scale(0.97);
+}
+.screen.slide-out {
+  opacity: 0; pointer-events: none; transform: translateY(-30px);
+}
+
+/* ════════════════════════════════════════
+   LOBBY SCREEN
+════════════════════════════════════════ */
+#screen-lobby {
+  flex-direction: column;
+  padding: 24px;
+  gap: 40px;
+}
+
+/* Logo */
+.lobby-brand {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  animation: fadeUp 0.8s cubic-bezier(0.16,1,0.3,1) both;
+}
+.lobby-title {
+  font-size: 44px; font-weight: 800; letter-spacing: -1.5px;
+  color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+}
+.lobby-title span {
+  color: var(--primary);
+}
+.lobby-sub {
+  font-size: 14px; color: var(--text-2); font-weight: 400; letter-spacing: 0.5px;
+  font-family: var(--mono);
+}
+
+/* Lobby cards container */
+.lobby-cards {
+  display: flex; gap: 20px; width: 100%; max-width: 700px;
+  animation: fadeUp 0.8s 0.1s cubic-bezier(0.16,1,0.3,1) both;
+}
+@media (max-width: 580px) { .lobby-cards { flex-direction: column; max-width: 400px; } }
+
+.lobby-card {
+  flex: 1; padding: 40px 32px; border-radius: 28px;
+  background: var(--glass-md);
+  backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--border-hi);
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+  cursor: pointer; transition: var(--transition);
+  box-shadow: var(--shadow-card);
+  position: relative; overflow: hidden;
+}
+[data-theme="dark"] .lobby-card {
+  background: rgba(22, 26, 32, 0.95);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+.lobby-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(37,99,235,0.05), transparent 60%);
+  opacity: 0; transition: opacity 0.4s;
+}
+.lobby-card:hover::before { opacity: 1; }
+.lobby-card:hover {
+  border-color: rgba(37,99,235,0.28);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 48px rgba(37,99,235,0.12), 0 4px 12px rgba(0,0,0,0.06);
+}
+.lobby-card-icon {
+  width: 76px; height: 76px; border-radius: 22px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+}
+.lobby-card-icon.create { background: rgba(0, 231, 193, 0.12); border: 1px solid rgba(0, 231, 193, 0.05); }
+.lobby-card-icon.join   { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.04); }
+.lobby-card-icon.create .icon-inner-circle {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+}
+.lobby-card-icon.create .icon-inner-circle .material-icons-round { color: #000; font-size: 20px; }
+.lobby-card-icon.join .material-icons-round { color: var(--text); font-size: 32px; }
+.lobby-card h3 { font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -0.5px; }
+.lobby-card p  { font-size: 14px; color: var(--text-2); text-align: center; line-height: 1.6; }
+
+/* ── CREATE ROOM PANEL ── */
+#create-panel {
+  width: 100%; max-width: 440px; padding: 36px;
+  background: var(--glass-hi);
+  backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--border-hi); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  animation: scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+  display: flex; flex-direction: column; gap: 24px;
+}
+@keyframes scaleIn { from { opacity:0; transform:scale(0.92) translateY(20px); } to { opacity:1; transform:scale(1) translateY(0); } }
+@keyframes fadeUp  { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+
+.panel-header { display: flex; align-items: center; justify-content: space-between; }
+.panel-title { font-size: 20px; font-weight: 700; }
+.btn-icon {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--glass-md); border: 1px solid var(--border);
+  color: var(--text-2); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: var(--transition); flex-shrink: 0;
+}
+.btn-icon:hover { background: var(--glass-hi); color: var(--text); border-color: var(--border-hi); }
+.btn-icon .material-icons-round { font-size: 20px; }
+
+.room-code-display {
+  background: var(--bg3); border: 1px solid rgba(37,99,235,0.15);
+  border-radius: var(--radius-md); padding: 24px 20px;
+  text-align: center; position: relative;
+  box-shadow: inset 0 2px 8px rgba(37,99,235,0.04);
+}
+.room-code-display::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+.room-code-label { font-size: 10px; font-family: var(--mono); color: var(--text-3); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+.room-code-value { font-family: var(--mono); font-size: 52px; font-weight: 700; letter-spacing: 12px; color: var(--text); line-height: 1; text-shadow: 0 2px 12px rgba(37,99,235,0.15); margin-right: -12px; }
+.room-code-value.loading { animation: codePulse 1.5s ease-in-out infinite; color: var(--text-3); }
+@keyframes codePulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+.code-actions-row { display: flex; gap: 10px; }
+.code-actions-row .btn { flex: 1; }
+
+.qr-toggle-area { border-radius: var(--radius-md); overflow: hidden; }
+.qr-inner { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; background: var(--bg3); border-radius: var(--radius-md); border: 1px solid var(--border); }
+.qr-inner #create-qr { border-radius: 10px; overflow: hidden; }
+
+.waiting-indicator {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; background: var(--primary-dim);
+  border: 1px solid rgba(37,99,235,0.18); border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 600; color: var(--primary);
+}
+.waiting-dots span {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--primary); margin: 0 2px;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+.waiting-dots span:nth-child(2) { animation-delay: 0.2s; }
+.waiting-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+
+/* ── JOIN PANEL ── */
+#join-panel {
+  width: 100%; max-width: 440px; padding: 36px;
+  background: var(--glass-hi);
+  backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px);
+  border: 1px solid var(--border-hi); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  animation: scaleIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+  display: flex; flex-direction: column; gap: 24px;
+}
+.code-input {
+  width: 100%; background: var(--bg3); border: 1.5px solid rgba(37,99,235,0.20);
+  border-radius: var(--radius-md); padding: 0 20px; height: 64px;
+  color: var(--text); font-family: var(--mono); font-size: 28px;
+  letter-spacing: 10px; text-align: center; outline: none;
+  transition: var(--transition);
+  box-shadow: inset 0 2px 8px rgba(37,99,235,0.04);
+}
+.code-input::placeholder { color: var(--text-3); letter-spacing: 4px; font-size: 16px; font-family: var(--font); }
+.code-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); }
+.or-row { display: flex; align-items: center; gap: 16px; color: var(--text-3); font-size: 12px; font-weight: 600; letter-spacing: 2px; }
+.or-row::before, .or-row::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 0 24px; height: 48px; border-radius: var(--radius-full);
+  border: none; font-family: var(--font); font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: var(--transition); letter-spacing: 0.3px;
+  position: relative; overflow: hidden; white-space: nowrap;
+}
+.btn .material-icons-round { font-size: 20px; }
+.btn:active { transform: scale(0.97); }
+
+.btn-primary { background: var(--primary); color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.4); box-shadow: 0 4px 16px var(--primary-glow); }
+.btn-primary:hover { box-shadow: 0 8px 24px var(--primary-glow); transform: translateY(-1px); }
+.btn-accent  { background: var(--accent);  color: var(--bg); box-shadow: 0 4px 16px var(--shadow-glass); }
+.btn-accent:hover  { box-shadow: 0 8px 24px var(--shadow-glass); transform: translateY(-1px); }
+.btn-ghost   { background: var(--glass-md); color: var(--text-2); border: 1px solid var(--border-hi); }
+.btn-ghost:hover   { background: var(--bg2); color: var(--text); border-color: rgba(37,99,235,0.25); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+.btn-danger  { background: rgba(220,38,38,0.08); color: var(--error); border: 1px solid rgba(220,38,38,0.20); }
+.btn-danger:hover  { background: var(--error); color: #fff; }
+.btn-full    { width: 100%; }
+.btn:disabled { opacity: 0.4; pointer-events: none; }
+
+/* connecting overlay */
+#connecting-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+  background: rgba(240,244,255,0.92); backdrop-filter: blur(16px);
+}
+.connect-orb {
+  width: 120px; height: 120px; border-radius: 50%; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.connect-orb::before, .connect-orb::after {
+  content: ''; position: absolute; border-radius: 50%; border: 1.5px solid var(--primary);
+  animation: orbRing 2s ease-in-out infinite;
+}
+.connect-orb::before { inset: 0; animation-delay: 0s; }
+.connect-orb::after  { inset: -14px; opacity: 0.4; animation-delay: 0.4s; }
+.connect-orb-ring3 { position: absolute; inset: -28px; border-radius: 50%; border: 1px solid rgba(79,158,255,0.2); animation: orbRing 2s 0.8s ease-in-out infinite; }
+@keyframes orbRing { 0%,100%{transform:scale(1);opacity:0.8} 50%{transform:scale(1.08);opacity:0.3} }
+.connect-orb-core {
+  width: 72px; height: 72px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-dim), var(--purple-dim));
+  border: 1px solid var(--border-hi);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 32px var(--primary-glow);
+}
+.connect-orb-core img { width: 36px; height: 36px; object-fit: contain; }
+.connect-label { font-size: 17px; font-weight: 600; color: var(--text); }
+.connect-sub   { font-size: 13px; color: var(--text-2); font-family: var(--mono); }
+
+/* ════════════════════════════════════════
+   SESSION SCREEN
+════════════════════════════════════════ */
+#screen-session {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  padding: 0; align-items: stretch; justify-content: flex-start;
+}
+
+/* ── SESSION HEADER ── */
+.session-header {
+  height: 64px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 16px; padding: 0 20px;
+  background: var(--glass-hi); backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border-hi);
+  z-index: 20; position: relative;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+.session-logo { width: 34px; height: 34px; object-fit: contain; border-radius: 10px; }
+.session-title { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+.session-title span { color: var(--primary); }
+.peer-status {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 14px; border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--primary-dim), var(--purple-dim));
+  border: 1px solid rgba(0, 231, 193, 0.25);
+  font-size: 12px; font-weight: 600; color: var(--text);
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+.peer-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: peerPulse 2s ease-in-out infinite; }
+@keyframes peerPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.peer-dot.offline { background: var(--text-3); box-shadow: none; animation: none; }
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.session-code-chip {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  padding: 5px 12px; border-radius: var(--radius-full);
+  background: var(--primary-dim); border: 1px solid rgba(79,158,255,0.2); color: var(--primary);
+  cursor: pointer; transition: var(--transition); letter-spacing: 2px;
+}
+.session-code-chip:hover { background: rgba(79,158,255,0.25); }
+
+/* ── SESSION BODY ── */
+.session-body {
+  flex: 1; display: flex; overflow: hidden; position: relative;
+}
+
+
+/* ── VIDEO GRID ── */
+.video-grid-container {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg);
+}
+.video-grid {
+  flex: 1; display: flex; flex-wrap: wrap; align-content: center; justify-content: center;
+  gap: 16px; padding: 16px; overflow-y: auto;
+}
+.video-cell {
+  position: relative; background: #111; border-radius: var(--radius-lg);
+  overflow: hidden; flex: 1 1 300px; max-width: calc(50% - 8px); aspect-ratio: 16/9;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+@media (min-width: 1200px) { .video-cell { max-width: calc(33.333% - 11px); } }
+.video-cell video { width: 100%; height: 100%; object-fit: cover; }
+.video-name {
+  position: absolute; bottom: 12px; left: 12px; background: rgba(0,0,0,0.6);
+  color: #fff; padding: 4px 10px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  backdrop-filter: blur(4px);
+}
+.video-controls-overlay {
+  position: absolute; top: 12px; right: 12px; display: flex; gap: 6px;
+}
+.video-icon {
+  width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center; color: #fff; backdrop-filter: blur(4px);
+}
+.video-icon.muted { background: var(--error); }
+
+/* ── BOTTOM BAR ── */
+.bottom-bar {
+  height: 80px; background: var(--glass-hi); backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-hi); display: flex; align-items: center;
+  justify-content: space-between; padding: 0 24px; z-index: 20;
+}
+.bottom-controls { display: flex; gap: 12px; align-items: center; justify-content: center; flex: 1; }
+.bottom-btn {
+  width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border-hi);
+  background: var(--glass-md); color: var(--text); display: flex; align-items: center;
+  justify-content: center; cursor: pointer; transition: all 0.2s;
+}
+.bottom-btn:hover { background: var(--bg2); transform: translateY(-2px); }
+.bottom-btn.active-danger { background: var(--error); color: #fff; border-color: transparent; }
+.bottom-btn.danger { background: var(--error); color: #fff; border-color: transparent; }
+.bottom-btn.danger:hover { background: #b91c1c; }
+
+/* Hide the old call widget */
+#call-widget { display: none !important; }
+
+/* ── SIDEBAR ── */
+/* ── SIDEBAR ── */
+.sidebar {
+  width: 380px;
+  position: absolute; right: 0; top: 0; bottom: 80px; z-index: 15;
+  background: rgba(248,250,255,0.85); backdrop-filter: blur(20px);
+  border-left: 1px solid var(--border-hi);
+  display: flex; flex-direction: column; overflow: visible; /* visible for resizer */
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16,1,0.3,1);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.1);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  transform: translateX(0);
+}
+[data-theme="dark"] .sidebar { background: rgba(22, 26, 32, 0.95); }
+.sidebar-resizer {
+  position: absolute; top: 0; bottom: 0; left: -4px; width: 8px;
+  cursor: ew-resize; z-index: 20; background: transparent;
+  transition: background 0.2s;
+}
+.sidebar-resizer:hover, .sidebar-resizer.dragging {
+  background: rgba(37,99,235,0.3);
+}
+.sidebar-inner {
+  display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden;
+}
+.sidebar.collapsed { transform: translateX(100%); opacity: 0; pointer-events: none; }
+.sidebar-section { padding: 16px; border-bottom: 1px solid var(--border); }
+.sidebar-label { font-size: 10px; font-family: var(--mono); letter-spacing: 2px; text-transform: uppercase; color: var(--text-3); margin-bottom: 12px; }
+.conn-quality {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.conn-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.conn-key { color: var(--text-3); }
+.conn-val { color: var(--text-2); font-family: var(--mono); font-weight: 600; }
+.conn-val.good  { color: var(--primary); }
+.conn-val.med   { color: var(--warn); }
+.conn-val.bad   { color: var(--error); }
+
+.shared-files-list { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; }
+.sidebar-file-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+  border-radius: var(--radius-sm); cursor: pointer;
+  transition: background 0.2s; background: transparent;
+}
+.sidebar-file-row:hover { background: var(--glass-md); }
+.sidebar-file-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sidebar-file-icon .material-icons-round { font-size: 15px; color: #fff; }
+.sidebar-file-info { flex: 1; min-width: 0; }
+.sidebar-file-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-file-size { font-size: 10px; color: var(--text-3); font-family: var(--mono); margin-top: 2px; }
+
+/* ── CHAT AREA ── */
+.chat-area {
+  flex: 1; display: flex; flex-direction: column; overflow: hidden;
+  position: relative; min-height: 0;
+  background-size: 28px 28px;
+  background-image: linear-gradient(to right, var(--border-hi) 1px, transparent 1px), linear-gradient(to bottom, var(--border-hi) 1px, transparent 1px);
+}
+
+.chat-feed {
+  flex: 1; overflow-y: auto; padding: 24px 20px;
+  display: flex; flex-direction: column; gap: 6px; min-height: 0;
+  scroll-behavior: smooth;
+}
+
+/* System event */
+.sys-event {
+  display: flex; align-items: center; gap: 10px; justify-content: center;
+  margin: 8px 0;
+}
+.sys-line { flex: 1; height: 1px; background: var(--border); }
+.sys-text { font-size: 11px; color: var(--text-3); font-family: var(--mono); letter-spacing: 1px; white-space: nowrap; }
+
+/* Message row */
+.msg-row {
+  display: flex; align-items: flex-end; gap: 10px;
+  animation: msgIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.msg-row.sent { flex-direction: row-reverse; }
+@keyframes msgIn { 0%{opacity:0;transform:translateY(20px) scale(0.95)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+
+.msg-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff;
+  margin-bottom: 2px;
+}
+.msg-avatar.them { background: linear-gradient(135deg, var(--purple), var(--primary)); }
+.msg-avatar.you  { background: linear-gradient(135deg, var(--primary), var(--accent)); }
+
+.msg-content { max-width: min(68%, 520px); display: flex; flex-direction: column; gap: 3px; }
+.msg-row.sent .msg-content { align-items: flex-end; }
+
+/* Text bubble */
+.bubble {
+  padding: 10px 16px; border-radius: 18px; font-size: 14px; line-height: 1.6;
+  word-break: break-word; position: relative;
+}
+.bubble.them {
+  background: #fff; border: 1px solid var(--border-hi);
+  border-bottom-left-radius: 4px; color: var(--text);
+  box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+}
+.bubble.sent {
+  background: var(--primary); border: none;
+  border-bottom-right-radius: 4px; color: #fff;
+  box-shadow: 0 4px 14px rgba(37,99,235,0.25);
+}
+
+.msg-time { font-size: 10px; color: var(--text-3); font-family: var(--mono); padding: 0 4px; }
+
+/* File card in chat */
+.file-card {
+  border-radius: var(--radius-md); overflow: hidden;
+  border: 1px solid var(--border-hi); background: var(--bg2);
+  min-width: 220px; max-width: 340px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  transition: var(--transition);
+}
+.file-card:hover { border-color: rgba(37,99,235,0.4); transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.15); }
+.file-card-preview {
+  width: 100%; background: var(--bg3);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; position: relative;
+}
+.file-card-preview img { width: 100%; height: 100%; object-fit: cover; }
+.file-card-preview video { width: 100%; max-height: 220px; background: #000; }
+.file-card-preview audio { width: 100%; padding: 12px; }
+.file-card-preview.doc-preview {
+  padding: 20px;
+  flex-direction: column; gap: 8px;
+}
+.file-card-preview .doc-icon { font-size: 44px; }
+.file-card-body { padding: 12px 14px; display: flex; align-items: center; gap: 10px; background: var(--bg2); }
+.file-card-info { flex: 1; min-width: 0; }
+.file-card-name { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-card-meta { font-size: 11px; color: var(--text-2); font-family: var(--mono); margin-top: 3px; }
+
+/* Progress ring inside file card */
+.file-card-progress {
+  width: 100%; padding: 10px 14px; background: var(--bg3);
+  border-top: 1px solid var(--border);
+}
+.progress-track { height: 4px; background: rgba(37,99,235,0.10); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), var(--purple)); background-size: 200% 100%; border-radius: 4px; transition: width 0.3s ease; width: 0%; animation: progressFlow 1.5s linear infinite; box-shadow: 0 0 10px var(--primary-glow); }
+@keyframes progressFlow { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.progress-label { font-size: 10px; color: var(--text-3); font-family: var(--mono); margin-top: 5px; display: flex; justify-content: space-between; }
+
+/* Code snippet in chat */
+.code-card {
+  border-radius: var(--radius-md); overflow: hidden;
+  border: 1px solid var(--border-hi); background: var(--bg3);
+  min-width: 280px; max-width: 480px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.code-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: var(--glass-md); border-bottom: 1px solid var(--border);
+}
+.code-lang-badge {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  padding: 3px 10px; border-radius: var(--radius-full);
+  background: var(--primary-dim); color: var(--primary);
+}
+.code-card-body { padding: 16px; overflow-x: auto; max-height: 280px; background: var(--bg3); }
+.code-card-body pre { font-family: var(--mono); font-size: 13px; line-height: 1.6; color: var(--text-2); white-space: pre; }
+
+/* Typing indicator */
+.typing-indicator {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 4px; margin: 4px 0;
+}
+.typing-bubble {
+  display: flex; align-items: center; gap: 4px;
+  padding: 10px 16px; border-radius: 18px; border-bottom-left-radius: 4px;
+  background: var(--glass-md); border: 1px solid var(--border);
+}
+.typing-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--text-3);
+  animation: typingDot 1.4s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingDot { 0%,60%,100%{transform:translateY(0);opacity:0.4} 30%{transform:translateY(-5px);opacity:1} }
+
+/* ── COMPOSER ── */
+.composer-area {
+  flex-shrink: 0; padding: 12px 16px 16px;
+  background: var(--glass-hi); backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-hi);
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.08);
+  z-index: 10; position: relative;
+}
+
+/* File attach chips above input */
+.attach-chips {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0 10px;
+}
+.attach-chip {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 10px 5px 8px; border-radius: var(--radius-sm);
+  background: var(--primary-dim); border: 1px solid rgba(79,158,255,0.2);
+  font-size: 12px; font-weight: 600; color: var(--primary);
+  animation: chipIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes chipIn { from{opacity:0;transform:scale(0.8)} to{opacity:1;transform:scale(1)} }
+.attach-chip .material-icons-round { font-size: 15px; }
+.chip-remove { background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; display: flex; margin-left: 2px; }
+.chip-remove:hover { opacity: 1; }
+.chip-remove .material-icons-round { font-size: 14px; }
+
+/* Code editor panel above composer */
+.code-compose-panel {
+  background: var(--bg3); border: 1px solid var(--border-hi);
+  border-radius: var(--radius-md); margin-bottom: 10px; overflow: hidden;
+  display: none;
+}
+.code-compose-panel.open { display: block; animation: fadeUp 0.3s ease; }
+.code-compose-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--glass-md);
+}
+.lang-select {
+  background: var(--bg2); border: 1px solid var(--border-hi); color: var(--text);
+  border-radius: var(--radius-sm); padding: 4px 10px; font-family: var(--mono);
+  font-size: 12px; outline: none; cursor: pointer;
+}
+.lang-select option { background: var(--bg2); }
+.code-compose-ta {
+  width: 100%; background: transparent; border: none; outline: none;
+  color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.6;
+  padding: 14px 16px; resize: none; min-height: 120px; max-height: 240px;
+  tab-size: 2;
+}
+
+
+.attach-menu {
+  position: absolute; bottom: 44px; right: 40px;
+  background: var(--bg2); border: 1px solid var(--border-hi);
+  border-radius: var(--radius-md); padding: 6px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+  display: flex; flex-direction: column; gap: 4px;
+  opacity: 0; pointer-events: none; transform: translateY(10px) scale(0.95);
+  transition: all 0.2s cubic-bezier(0.16,1,0.3,1);
+  z-index: 50;
+}
+.attach-menu.open {
+  opacity: 1; pointer-events: all; transform: translateY(0) scale(1);
+}
+.attach-menu-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  color: var(--text); font-size: 13px; font-weight: 500;
+  border-radius: var(--radius-sm); cursor: pointer; text-decoration: none;
+  background: transparent; border: none; width: 100%; text-align: left;
+  transition: background 0.15s; white-space: nowrap;
+}
+.attach-menu-item:hover { background: var(--glass-md); }
+.attach-menu-item .material-icons-round { color: var(--primary); font-size: 18px; }
+
+/* Composer row */
+.composer-row {
+  display: flex; align-items: flex-end; gap: 10px;
+}
+.composer-input-wrap {
+  flex: 1; display: flex; align-items: flex-end; gap: 4px;
+  background: var(--bg3); border: 1.5px solid var(--border-hi);
+  border-radius: 24px; padding: 8px 8px 8px 16px;
+  transition: border-color 0.2s; min-width: 0;
+}
+.composer-input-wrap:focus-within { border-color: rgba(37,99,235,0.35); box-shadow: 0 0 0 3px var(--primary-dim); }
+.composer-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.5;
+  resize: none; min-height: 34px; max-height: 120px; overflow-y: auto; padding: 6px 0; min-width: 0;
+}
+.composer-input::placeholder { color: var(--text-3); }
+.composer-input-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.composer-btn {
+  width: 34px; height: 34px; border-radius: 50%; background: transparent;
+  border: none; color: var(--text-3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+}
+.composer-btn:hover { color: var(--text); background: var(--glass-md); }
+.composer-btn .material-icons-round { font-size: 20px; }
+.composer-btn.active { color: var(--primary); }
+.send-btn {
+  width: 46px; height: 46px; border-radius: 50%; background: var(--primary);
+  border: none; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.4); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: var(--transition); flex-shrink: 0;
+  box-shadow: 0 4px 16px var(--primary-glow);
+}
+.send-btn:hover { box-shadow: 0 8px 24px var(--primary-glow); transform: scale(1.05); }
+.send-btn:active { transform: scale(0.95); }
+.send-btn .material-icons-round { font-size: 22px; color: #fff; }
+
+/* ── EMPTY STATE ── */
+.chat-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 40px; opacity: 0.5;
+}
+.chat-empty .material-icons-round { font-size: 52px; color: var(--text-3); }
+.chat-empty h3 { font-size: 18px; font-weight: 600; color: var(--text-2); }
+.chat-empty p { font-size: 13px; color: var(--text-3); text-align: center; line-height: 1.6; }
+
+/* ── QR MODAL ── */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(15,23,42,0.45); backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.modal-backdrop.open { opacity: 1; pointer-events: all; }
+.modal-box {
+  background: var(--bg); border: 1px solid var(--border-hi); border-radius: var(--radius-xl);
+  padding: 32px; max-width: 360px; width: 100%;
+  box-shadow: 0 24px 60px rgba(15,23,42,0.18);
+  transform: scale(0.92); transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  display: flex; flex-direction: column; gap: 20px; align-items: center;
+}
+.modal-backdrop.open .modal-box { transform: scale(1); }
+.modal-box h3 { font-size: 18px; font-weight: 700; color: var(--text); }
+
+/* ── LIGHTBOX ── */
+.lightbox {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(15,23,42,0.92); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.lightbox.open { opacity: 1; pointer-events: all; }
+.lightbox img { max-width: 100%; max-height: 90vh; border-radius: var(--radius-md); object-fit: contain; }
+.lightbox-close { position: absolute; top: 20px; right: 20px; }
+
+/* ── TOAST ── */
+.toast-container { position: fixed; bottom: 80px; right: 20px; z-index: 300; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.toast {
+  padding: 12px 18px; border-radius: var(--radius-md);
+  background: #fff; backdrop-filter: blur(16px);
+  border: 1px solid var(--border-hi); color: var(--text);
+  font-size: 13px; font-weight: 600; box-shadow: 0 8px 24px rgba(15,23,42,0.14);
+  animation: toastIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  display: flex; align-items: center; gap: 10px;
+}
+@keyframes toastIn { from{opacity:0;transform:translateX(30px)} to{opacity:1;transform:translateX(0)} }
+.toast.success { border-color: rgba(8,145,178,0.25); }
+.toast.error   { border-color: rgba(220,38,38,0.25); }
+.toast .material-icons-round { font-size: 18px; }
+
+/* ── AUDIO RECORDING ── */
+.record-dot {
+  width: 10px; height: 10px; border-radius: 50%; background: var(--error);
+  animation: pulseDot 1s infinite alternate;
+}
+@keyframes pulseDot { 0% { opacity: 0.4; } 100% { opacity: 1; box-shadow: 0 0 8px var(--error); } }
+.audio-overlay {
+  position: absolute; inset: 0; background: var(--glass-md); backdrop-filter: blur(8px);
+  border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: space-between;
+  padding: 0 12px; z-index: 10; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.audio-overlay.active { opacity: 1; pointer-events: all; }
+
+/* HIGHLIGHT.JS overrides for light theme */
+.hljs { background: transparent !important; padding: 0 !important; }
+.hljs-keyword { color: #7C3AED; font-weight: 600; }
+.hljs-string  { color: #059669; }
+.hljs-number  { color: #D97706; }
+.hljs-comment { color: #94A3B8; font-style: italic; }
+.hljs-title, .hljs-title.function_ { color: #2563EB; font-weight: 600; }
+.hljs-built_in, .hljs-type { color: #DB2777; }
+.hljs-attr    { color: #0891B2; }
+.hljs-name    { color: #DC2626; }
+.hljs-tag     { color: #7C3AED; }
+
+/* ── TRANSFER ANIMATION ── */
+.transfer-anim-wrap {
+  position: absolute; top: -140px; left: 50%; transform: translateX(-50%);
+  width: 480px; height: 240px; pointer-events: none;
+}
+.transfer-device {
+  position: absolute; bottom: 0px; font-size: 38px; color: var(--primary); opacity: 0.9;
+  z-index: 2;
+}
+.transfer-device.left { left: 10px; }
+.transfer-device.right { right: 10px; }
+.transfer-arc-svg {
+  position: absolute; bottom: 19px; left: 34px; width: 412px; height: 206px;
+  color: var(--primary); opacity: 0.6; pointer-events: none;
+  z-index: 1;
+}
+.flowing-dash {
+  animation: flowDash 0.8s linear infinite;
+}
+@keyframes flowDash {
+  to { stroke-dashoffset: -16; }
+}
+.transfer-file {
+  position: absolute; width: 22px; height: 22px; background: var(--glass-hi);
+  border: 2px solid var(--primary); border-radius: 4px; bottom: 8px; left: 23px;
+  display: flex; align-items: center; justify-content: center; color: var(--primary);
+  animation: flyArc 2.5s linear infinite;
+  box-shadow: 0 0 10px var(--primary-glow);
+  z-index: 3;
+}
+.transfer-file .material-icons-round { font-size: 13px; }
+@keyframes flyArc {
+  0%    { transform: translate(0px, 0px) scale(0); opacity: 0; }
+  12.5% { opacity: 1; transform: translate(16px, -79px) scale(1) rotate(11deg); }
+  25%   { transform: translate(60px, -146px) scale(1) rotate(22deg); }
+  37.5% { transform: translate(127px, -190px) scale(1) rotate(33deg); }
+  50%   { transform: translate(206px, -206px) scale(1) rotate(45deg); }
+  62.5% { transform: translate(285px, -190px) scale(1) rotate(56deg); }
+  75%   { transform: translate(352px, -146px) scale(1) rotate(67deg); }
+  87.5% { opacity: 1; transform: translate(396px, -79px) scale(1) rotate(78deg); }
+  100%  { transform: translate(412px, 0px) scale(0) rotate(90deg); opacity: 0; }
+}
+
+/* ── UTILS ── */
+.hidden { display: none !important; }
+.flex-1 { flex: 1; }
+
+/* Mobile sidebar toggle */
+@media (max-width: 768px) {
+  .sidebar { width: 100% !important; bottom: 0; z-index: 40; transform: translateX(100%); }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.collapsed { opacity: 0; pointer-events: none; }
+  .sidebar-resizer { display: none; }
+  .video-cell { max-width: 100%; aspect-ratio: auto; min-height: 200px; flex: 1 1 100%; }
+  .bottom-bar { padding: 0 12px; height: 70px; }
+  .bottom-controls { gap: 6px; }
+  .bottom-btn { width: 42px; height: 42px; }
+  .bottom-btn .material-icons-round { font-size: 18px; }
+  .chat-feed { padding: 16px 14px; }
+  .composer-area { padding: 8px 12px 12px; }
+  .msg-content { max-width: 82%; }
+  .code-card, .file-card { min-width: 200px; }
+  #emoji-grid.collapsed { max-height: 48px; }
+  .session-header { padding: 0 6px; gap: 6px; }
+  .header-right { gap: 4px; }
+  .session-title { display: block; font-size: 14px; }
+  .session-logo { display: none; }
+  .peer-status { padding: 4px 8px; gap: 4px; }
+  #peer-status-text { display: inline-block; font-size: 10px; }
+  .session-code-chip { padding: 4px 6px; letter-spacing: 0; font-size: 10px; }
+  .btn-icon { width: 32px; height: 32px; }
+  #create-panel, #join-panel { padding: 24px 20px; }
+  .room-code-display { padding: 16px; }
+  .room-code-value { font-size: 38px; letter-spacing: 8px; margin-right: -8px; }
+  .code-actions-row { flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .code-actions-row .btn { flex: 1 1 40%; min-width: 100px; padding: 0 12px; }
+  
+  /* Landing page animation scale for mobile */
+  @media (max-width: 500px) {
+    .transfer-anim-wrap { transform: translateX(-50%) scale(0.65); }
+    .lobby-brand { margin-top: 90px !important; }
+    .lobby-title { font-size: 32px; }
+    .lobby-sub { font-size: 11px; margin-top: 4px; }
+  }
+}
+
+.emoji-conn-loader { position: relative; display: flex; align-items: center; justify-content: space-between; width: 160px; font-size: 48px; margin-bottom: 30px; margin-left: auto; margin-right: auto; }
+.emoji-conn-beam { position: absolute; left: 56px; right: 56px; height: 3px; background: rgba(37,99,235,0.15); border-radius: 4px; overflow: hidden; }
+.emoji-conn-beam::after { content:''; position: absolute; left: 0; top: 0; bottom: 0; width: 40%; background: var(--primary); box-shadow: 0 0 12px var(--primary-glow); animation: beamShoot 1s infinite alternate ease-in-out; }
+@keyframes beamShoot { 0% { left: 0%; width: 10%; opacity: 0.5; } 50% { width: 60%; opacity: 1; } 100% { left: 90%; width: 10%; opacity: 0.5; } }
+#conn-my-emoji-icon { position: relative; z-index: 2; animation: avatarFloat 2s infinite alternate ease-in-out; }
+#conn-their-emoji-icon { position: relative; z-index: 2; animation: avatarFloat 2s infinite alternate-reverse ease-in-out; opacity: 0.7; filter: grayscale(100%); }
+@keyframes avatarFloat { 0% { transform: translateY(-4px) scale(1); } 100% { transform: translateY(4px) scale(1.05); } }
+
+#sidebar-overlay {
+  position: absolute; inset: 0; background: rgba(15,23,42,0.4); backdrop-filter: blur(2px);
+  z-index: 30; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+#sidebar-overlay.active { opacity: 1; pointer-events: all; }
+
+/* ── DARK MODE REFERENCE OVERRIDES ── */
+[data-theme="dark"] .bubble.them {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 18px 18px 18px 4px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: none;
+}
+[data-theme="dark"] .bubble.sent {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px 18px 4px 18px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--text);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .composer-input-wrap {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 30px;
+  backdrop-filter: blur(12px);
+  padding: 10px 10px 10px 18px;
+}
+[data-theme="dark"] .sidebar {
+  background: rgba(17, 24, 39, 0.6);
+  backdrop-filter: blur(24px);
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .session-header {
+  background: rgba(17, 24, 39, 0.4);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .chat-feed {
+  background: transparent;
+}
+[data-theme="dark"] .composer-area {
+  background: rgba(17, 24, 39, 0.4);
+  backdrop-filter: blur(24px);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .mesh-bg {
+  background: var(--bg);
+}
+[data-theme="dark"] .orb-1 { background: rgba(0, 231, 193, 0.15); }
+[data-theme="dark"] .orb-2 { background: rgba(167, 139, 250, 0.1); }
+[data-theme="dark"] .orb-3 { background: rgba(74, 222, 128, 0.1); }
+[data-theme="dark"] .mesh-bg::after {
+  opacity: 0.05;
+}
+
+/* Radar Sound Wave Visualizer CSS */
+.avatar-canvas { position: absolute; inset: -60px; width: calc(100% + 120px); height: calc(100% + 120px); z-index: -1; pointer-events: none; }
+.bottom-btn.active { background: var(--primary); color: #000; border-color: var(--primary); }
+.bottom-btn.active-danger { background: #e11d48; color: #fff; border-color: #e11d48; animation: pulseRed 2s infinite; }
+@keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(225, 29, 72, 0); } 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); } }
+</style>
+</head>
+<body>
+<div class="mesh-bg">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<!-- ════════ LOBBY SCREEN ════════ -->
+<div class="screen" id="screen-lobby" style="display:block; overflow-y:auto; overflow-x:hidden;">
+  <div style="position:absolute; top:20px; right:20px; z-index:100;">
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Dark Mode">
+      <span class="material-icons-round theme-icon">dark_mode</span>
+    </button>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:32px;width:100%;padding:40px 24px;min-height:100%;">
+
+    <!-- Brand -->
+    <div class="lobby-brand" style="position: relative; margin-top: 140px;">
+      <div class="transfer-anim-wrap">
+        <img src="https://i.ibb.co.com/vC22ZZB5/folder.png" class="transfer-device left" style="width: 48px; height: auto;" alt="Folder" />
+        <svg class="transfer-arc-svg" viewBox="0 0 412 206" preserveAspectRatio="none">
+          <path d="M 0,206 A 206,206 0 0,1 412,206" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="8 8" class="flowing-dash" />
+        </svg>
+        <div class="transfer-file">
+          <span class="material-icons-round">insert_drive_file</span>
+        </div>
+        <img src="https://i.ibb.co.com/vC22ZZB5/folder.png" class="transfer-device right" style="width: 48px; height: auto;" alt="Folder" />
+      </div>
+      <div class="lobby-title">Phantom<span>Link</span></div>
+      <div class="lobby-sub">SECURE · DIRECT · ZERO-SERVER</div>
+    </div>
+
+    <!-- Emoji avatar picker -->
+    <div id="emoji-picker-card" style="width:100%;max-width:700px;background:var(--glass-md);backdrop-filter:blur(16px);border:1px solid var(--border-hi);border-radius:var(--radius-lg);padding:18px 20px;box-shadow:var(--shadow-glass);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <span id="my-emoji-display" style="font-size:32px;line-height:1;cursor:pointer;transition:transform 0.2s" onclick="toggleEmojiPicker()" title="Pick your avatar">🦁</span>
+        <div style="display:flex; flex-direction:column; align-items:flex-start; flex:1; min-width:0; margin-right:8px;">
+          <div id="my-name-display" style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;">Your Name</div>
+          <div style="font-size:11px;color:var(--text-3);cursor:pointer;text-decoration:underline;" onclick="randomizeName()">Change name</div>
+        </div>
+        <button onclick="toggleEmojiPicker()" style="margin-left:auto;background:var(--primary-dim);border:1px solid rgba(37,99,235,0.2);border-radius:var(--radius-sm);padding:5px 12px;font-size:12px;font-weight:700;color:var(--primary);cursor:pointer;font-family:var(--font)">Change</button>
+      </div>
+      <div id="emoji-grid" style="display:none;flex-wrap:wrap;gap:6px;overflow:hidden;transition:max-height 0.3s ease;">
+        <!-- populated by JS -->
+      </div>
+      <div id="emoji-more-btn-wrap" style="display:none;text-align:center;margin-top:10px;">
+        <button id="emoji-more-btn" onclick="toggleEmojiMore()" style="background:none;border:none;color:var(--primary);font-size:12px;font-weight:700;cursor:pointer;">Show More ↓</button>
+      </div>
+    </div>
+
+    <!-- Choice cards (default) -->
+    <div class="lobby-cards" id="lobby-choice">
+      <div class="lobby-card" onclick="showCreatePanel()">
+        <div class="lobby-card-icon create">
+          <div class="icon-inner-circle">
+            <span class="material-icons-round">add</span>
+          </div>
+        </div>
+        <h3>Create Room</h3>
+        <p>Generate a code & share it with anyone. Be the host of this session.</p>
+        <button class="btn btn-primary btn-full" style="margin-top:12px; height:54px; font-size:16px; border-radius:100px;">
+          <span class="material-icons-round">sensors</span> Create Room
+        </button>
+      </div>
+      <div class="lobby-card" onclick="showJoinPanel()">
+        <div class="lobby-card-icon join">
+          <span class="material-icons-round">login</span>
+        </div>
+        <h3>Join Room</h3>
+        <p>Enter a 6-digit code or scan a QR to join an existing session.</p>
+        <button class="btn btn-accent btn-full" style="margin-top:12px; height:54px; font-size:16px; border-radius:100px;">
+          <span class="material-icons-round">bolt</span> Join Room
+        </button>
+      </div>
+    </div>
+
+    <!-- Create panel -->
+    <div id="create-panel" class="hidden">
+      <div class="panel-header">
+        <div class="panel-title">Your Room</div>
+        <button class="btn-icon" onclick="backToChoice()" title="Back">
+          <span class="material-icons-round">arrow_back</span>
+        </button>
+      </div>
+
+      <div class="room-code-display">
+        <div class="room-code-label">Share this code</div>
+        <div class="room-code-value loading" id="create-code-value">······</div>
+      </div>
+
+      <div class="code-actions-row">
+        <button class="btn btn-ghost" id="create-copy-code" onclick="copyCreateCode()">
+          <span class="material-icons-round">content_copy</span> Copy Code
+        </button>
+        <button class="btn btn-ghost" onclick="copyCreateLink()">
+          <span class="material-icons-round">link</span> Copy Link
+        </button>
+        <button class="btn btn-ghost" onclick="toggleCreateQR()" id="create-qr-toggle-btn">
+          <span class="material-icons-round">qr_code</span> QR
+        </button>
+      </div>
+
+      <div id="create-qr-wrap" class="hidden qr-toggle-area">
+        <div class="qr-inner">
+          <div id="create-qr"></div>
+          <div style="font-size:11px;color:var(--text-3);font-family:var(--mono);letter-spacing:1px">SCAN TO JOIN</div>
+        </div>
+      </div>
+
+      <div class="waiting-indicator">
+        <div class="waiting-dots"><span></span><span></span><span></span></div>
+        <span id="create-wait-text">Waiting for someone to join…</span>
+      </div>
+
+      <button class="btn btn-danger btn-full" onclick="cancelCreate()">
+        <span class="material-icons-round">cancel</span> Cancel
+      </button>
+    </div>
+
+    <!-- Prejoin Panel -->
+    <div id="prejoin-panel" class="hidden">
+      <h3>Ready to Join?</h3>
+      <div class="prejoin-preview-wrap" style="position:relative; width: 100%; aspect-ratio: 16/9; background: #000; border-radius: var(--radius-md); overflow: hidden; margin: 16px 0;">
+        <video id="prejoin-vid" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+        <div id="prejoin-avatar-wrap" class="hidden" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background: rgba(15,20,30,0.95); z-index:5;">
+          <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+            <canvas class="avatar-canvas" id="canvas-prejoin" width="420" height="420" style="inset:-60px;"></canvas>
+            <div id="prejoin-avatar-circle" style="position: relative; z-index: 10; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px rgba(0,0,0,0.4);">
+              <div id="prejoin-avatar-emoji" style="font-size: 40px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));">👤</div>
+            </div>
+          </div>
+        </div>
+        <div style="position: absolute; bottom: 12px; left: 0; right: 0; display: flex; justify-content: center; gap: 16px; z-index: 10;">
+          <button class="composer-btn" id="prejoin-mic-btn" onclick="togglePrejoinMic()" style="background: rgba(255,255,255,0.2); backdrop-filter: blur(8px); color: #fff; width: 44px; height: 44px; transition: background 0.2s;">
+            <span class="material-icons-round">mic</span>
+          </button>
+          <button class="composer-btn" id="prejoin-cam-btn" onclick="togglePrejoinCam()" style="background: rgba(255,255,255,0.2); backdrop-filter: blur(8px); color: #fff; width: 44px; height: 44px; transition: background 0.2s;">
+            <span class="material-icons-round">videocam</span>
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-start-session" onclick="proceedToSession()" style="margin-top:8px;" disabled>Start Session</button>
+      <button class="btn btn-ghost btn-full" onclick="cancelPrejoin()">Cancel</button>
+    </div>
+
+    <!-- Join panel -->
+    <div id="join-panel" class="hidden">
+      <div class="panel-header">
+        <div class="panel-title">Join a Room</div>
+        <button class="btn-icon" onclick="backToChoice()">
+          <span class="material-icons-round">arrow_back</span>
+        </button>
+      </div>
+
+      <input class="code-input" type="text" id="join-code-input" placeholder="Enter Code"
+        maxlength="6" oninput="this.value=this.value.toUpperCase()"
+        onkeydown="if(event.key==='Enter')prepareJoin()">
+
+      <div class="or-row">OR</div>
+
+      <button class="btn btn-ghost btn-full" onclick="openQRScanner()">
+        <span class="material-icons-round">qr_code_scanner</span> Scan QR Code
+      </button>
+
+      <div id="join-status" class="hidden" style="padding:14px 18px;border-radius:var(--radius-md);font-size:13px;font-weight:600;"></div>
+
+      <button class="btn btn-accent btn-full" onclick="prepareJoin()">
+        <span class="material-icons-round">login</span> Join Session
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════ CONNECTING OVERLAY ════════ -->
+<div id="connecting-overlay" class="hidden">
+  <div class="emoji-conn-loader">
+    <span id="conn-my-emoji-icon" style="display:inline-block">🦁</span>
+    <span class="emoji-conn-beam"></span>
+    <span id="conn-their-emoji-icon" style="display:inline-block">❓</span>
+  </div>
+  <div class="connect-label" id="connecting-label">Establishing connection…</div>
+  <div class="connect-sub" id="connecting-sub">Negotiating P2P route</div>
+</div>
+
+<!-- ════════ SESSION SCREEN ════════ -->
+<div class="screen hidden" id="screen-session">
+
+  <!-- Header -->
+  <header class="session-header">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div class="session-title" onclick="toggleSidebar()" style="cursor:pointer;" title="Toggle files panel">Phantom<span>Link</span></div>
+      
+      <!-- Share Menu Wrap -->
+      <div style="position:relative;">
+        <div class="session-code-chip" id="session-code-chip" onclick="toggleShareMenu(event)" style="display:flex;align-items:center;gap:4px;">
+          <span id="session-code-display">Code</span>
+          <span class="material-icons-round" style="font-size:14px;">expand_more</span>
+        </div>
+        <!-- Share Dropdown -->
+        <div class="attach-menu" id="share-menu" style="top: 36px; left: 0; bottom: auto; right: auto;">
+          <button class="attach-menu-item" onclick="copySessionCode(); toggleShareMenu();">
+            <span class="material-icons-round">content_copy</span> Copy Code
+          </button>
+          <button class="attach-menu-item" onclick="copySessionLink(); toggleShareMenu();">
+            <span class="material-icons-round">link</span> Copy Link
+          </button>
+          <button class="attach-menu-item" onclick="showSessionQR(); toggleShareMenu();">
+            <span class="material-icons-round">qr_code</span> Show QR
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="peer-status" id="peer-status-chip">
+      <div class="peer-dot" id="peer-dot"></div>
+      <span id="peer-status-text">Connected</span>
+    </div>
+    <div class="header-right"></div>
+  </header>
+
+
+  <!-- Body -->
+  <div class="session-body">
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    
+    <div class="video-grid-container">
+      <div class="video-grid" id="video-grid">
+        <!-- Videos go here -->
+      </div>
+      
+      <!-- Bottom Control Bar -->
+      <div class="bottom-bar">
+        <div style="flex:1; font-weight:600; font-size:14px; display:flex; align-items:center; gap:8px;">
+          <div class="peer-dot" id="peer-dot"></div> <span id="peer-status-text">0 in room</span>
+        </div>
+        <div class="bottom-controls">
+          <button class="bottom-btn" id="btn-mic" onclick="toggleLocalMic()" title="Toggle Mic"><span class="material-icons-round">mic</span></button>
+          <button class="bottom-btn" id="btn-cam" onclick="toggleLocalCam()" title="Toggle Camera"><span class="material-icons-round">videocam</span></button>
+          <button class="bottom-btn" id="btn-screen" onclick="toggleScreenShare()" title="Share Screen"><span class="material-icons-round">present_to_all</span></button>
+          <button class="bottom-btn" id="btn-record" onclick="toggleRecording()" title="Record Screen"><span class="material-icons-round">radio_button_checked</span></button>
+          <button class="bottom-btn danger" onclick="endSession()" title="End Session"><span class="material-icons-round">call_end</span></button>
+        </div>
+        <div style="flex:1; display:flex; justify-content:flex-end; gap:12px;">
+          <button class="bottom-btn" onclick="toggleSidebar()"><span class="material-icons-round">chat</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar (Chat & Files) -->
+    <aside class="sidebar collapsed" id="sidebar">
+      <div id="sidebar-resizer" class="sidebar-resizer"></div>
+      <div class="sidebar-inner">
+      <div class="sidebar-section" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="font-weight:700;">Chat & Files</div>
+        <button class="btn-icon" onclick="toggleSidebar()"><span class="material-icons-round">close</span></button>
+      </div>
+      <div class="sidebar-section" style="max-height: 200px; overflow-y: auto; flex-shrink:0;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+          <div class="sidebar-label" style="margin-bottom:0;">Shared Files</div>
+          <button onclick="downloadAllFiles()" title="Download all files" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:11px;font-weight:700;"><span class="material-icons-round" style="font-size:14px">download</span></button>
+        </div>
+        <div class="shared-files-list" id="shared-files-list" style="padding:0;"><div style="font-size:12px;color:var(--text-3);text-align:center;">No files yet</div></div>
+      </div>
+      
+      <!-- Chat Area -->
+      <div class="chat-area">
+
+
+    
+      <div class="chat-feed" id="chat-feed">
+        <div class="chat-empty" id="chat-empty">
+          <span class="material-icons-round">forum</span>
+          <h3>Session Active</h3>
+          <p>Send a message, attach files, or share a code snippet.<br>Everything goes directly to the other device.</p>
+        </div>
+      </div>
+
+      <!-- Typing indicator -->
+      <div class="typing-indicator hidden" id="typing-indicator" style="padding:0 20px 8px">
+        <div class="msg-avatar them" style="width:24px;height:24px;font-size:11px">P</div>
+        <div class="typing-bubble">
+          <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
+        </div>
+      </div>
+
+      <!-- Composer -->
+      <div class="composer-area">
+        <!-- Attach chips -->
+        <div class="attach-chips hidden" id="attach-chips"></div>
+        <!-- Code panel -->
+        <div class="code-compose-panel" id="code-compose-panel">
+          <div class="code-compose-header">
+            <select class="lang-select" id="code-lang-select">
+              <option value="javascript">JavaScript</option>
+              <option value="typescript">TypeScript</option>
+              <option value="python">Python</option>
+              <option value="html">HTML</option>
+              <option value="css">CSS</option>
+              <option value="json">JSON</option>
+              <option value="java">Java</option>
+              <option value="cpp">C++</option>
+              <option value="c">C</option>
+              <option value="rust">Rust</option>
+              <option value="go">Go</option>
+              <option value="bash">Bash</option>
+              <option value="sql">SQL</option>
+              <option value="plaintext">Plain Text</option>
+            </select>
+            <span style="font-size:12px;color:var(--text-3)">Code Snippet</span>
+            <button class="btn-icon" style="width:28px;height:28px" onclick="toggleCodePanel()">
+              <span class="material-icons-round" style="font-size:16px">close</span>
+            </button>
+          </div>
+          <textarea class="code-compose-ta" id="code-compose-ta" spellcheck="false" placeholder="// Paste or write your snippet…"
+            onkeydown="handleCodeTaKey(event)"></textarea>
+        </div>
+        <!-- Main row -->
+        <div class="composer-row">
+          <div class="composer-input-wrap">
+            <textarea class="composer-input" id="composer-input" rows="1" placeholder="Message…"
+              oninput="autoResizeTextarea(this); sendTyping();"
+              onkeydown="handleComposerKey(event)"></textarea>
+
+            <!-- Audio Recording Overlay -->
+            <div id="audio-record-overlay" class="audio-overlay">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <div class="record-dot"></div>
+                <div id="audio-record-time" style="font-family:var(--mono); font-size:14px; font-weight:600; color:var(--text);">00:00</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <button class="btn-icon btn-danger" onclick="cancelAudioRecording()" title="Cancel">
+                  <span class="material-icons-round" style="font-size:18px">delete</span>
+                </button>
+                <button class="btn-icon btn-accent" onclick="finishAndSendAudio()" title="Send">
+                  <span class="material-icons-round" style="font-size:18px">send</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Attach Menu popup -->
+            <div class="attach-menu" id="attach-menu">
+              <label class="attach-menu-item">
+                <span class="material-icons-round">attach_file</span> Send File(s)
+                <input type="file" id="file-attach-input" multiple onchange="onFilesAttached(this.files); toggleAttachMenu();" style="display:none">
+              </label>
+              <label class="attach-menu-item">
+                <span class="material-icons-round">folder_zip</span> Send Folder
+                <input type="file" id="folder-attach-input" webkitdirectory directory multiple onchange="onFolderAttached(this.files); toggleAttachMenu();" style="display:none">
+              </label>
+              <button class="attach-menu-item" onclick="toggleCodePanel(); toggleAttachMenu();">
+                <span class="material-icons-round">data_object</span> Code Snippet
+              </button>
+            </div>
+
+            <div class="composer-input-actions" style="position:relative;">
+              <button class="composer-btn" id="attach-btn" title="Attachments" onclick="toggleAttachMenu(event)">
+                <span class="material-icons-round">add</span>
+              </button>
+              <button class="composer-btn" id="mic-btn" title="Record Voice" onclick="startAudioRecording()">
+                <span class="material-icons-round">mic</span>
+              </button>
+            </div>
+          </div>
+          <button class="send-btn" onclick="sendMessage()" title="Send">
+            <span class="material-icons-round">send</span>
+          </button>
+        </div>
+      </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- QR Scanner Modal -->
+<div class="modal-backdrop" id="qr-modal" onclick="if(event.target===this)closeQRScanner()">
+  <div class="modal-box">
+    <h3>Scan QR Code</h3>
+    <div style="position:relative;width:100%;border-radius:var(--radius-md);overflow:hidden;background:#000;min-height:220px">
+      <div id="qr-reader" style="width:100%"></div>
+    </div>
+    <div id="qr-scan-status" style="font-size:13px;color:var(--text-2);font-family:var(--mono)">Initializing camera…</div>
+    <button class="btn btn-ghost btn-full" onclick="closeQRScanner()">
+      <span class="material-icons-round">close</span> Cancel
+    </button>
+  </div>
+</div>
+
+<!-- Session QR Display Modal -->
+<div class="modal-backdrop" id="qr-display-modal" onclick="if(event.target===this)closeSessionQR()">
+  <div class="modal-box" style="display:flex; flex-direction:column; align-items:center; gap:16px;">
+    <h3>Room QR Code</h3>
+    <div id="session-qr-container" style="background:#fff; padding:16px; border-radius:8px;"></div>
+    <div style="font-size:13px; color:var(--text-3); text-align:center;">Scan this QR code to instantly join the room on another device.</div>
+    <button class="btn btn-ghost btn-full" onclick="closeSessionQR()">
+      <span class="material-icons-round">close</span> Close
+    </button>
+  </div>
+</div>
+
+<!-- End Session Modal -->
+<div class="modal-backdrop" id="end-session-modal" onclick="if(event.target===this)closeEndSessionModal()">
+  <div class="modal-box" style="max-width: 320px; text-align: center;">
+    <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(220,38,38,0.1); color: var(--error); display: flex; align-items: center; justify-content: center; margin: 0 auto; margin-bottom: 12px;">
+      <span class="material-icons-round" style="font-size: 28px;">warning_amber</span>
+    </div>
+    <h3 style="margin-bottom: 4px;">End Session?</h3>
+    <p style="font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 24px;">Are you sure you want to end this session? All ongoing transfers will be cancelled.</p>
+    <div style="display: flex; gap: 12px; width: 100%;">
+      <button class="btn btn-ghost flex-1" onclick="closeEndSessionModal()">Cancel</button>
+      <button class="btn btn-danger flex-1" onclick="confirmEndSession()">End Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- Draft Recording Modal -->
+<div class="modal-backdrop" id="draft-recording-modal" onclick="if(event.target===this)closeDraftModal()">
+  <div class="modal-box" style="text-align: center;">
+    <div style="width: 56px; height: 56px; border-radius: 50%; background: rgba(37,99,235,0.1); color: var(--primary); display: flex; align-items: center; justify-content: center; margin: 0 auto; margin-bottom: 12px;">
+      <span class="material-icons-round" style="font-size: 28px;">movie</span>
+    </div>
+    <h3 style="margin-bottom: 4px;">Recording Finished</h3>
+    <p style="font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 24px;">Do you want to share this recording with the room or save it locally?</p>
+    <div style="display: flex; gap: 12px; width: 100%;">
+      <button class="btn btn-ghost flex-1" onclick="downloadDraftRecordingModal()">Save Locally</button>
+      <button class="btn btn-primary flex-1" onclick="sendDraftRecordingModal()">Send to Room</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <img id="lightbox-img" src="" alt="">
+  <button class="btn-icon lightbox-close" onclick="closeLightbox()">
+    <span class="material-icons-round">close</span>
+  </button>
+</div>
+
+<!-- Call Widget -->
+<div id="call-widget" class="hidden" style="position: absolute; top: 80px; right: 20px; z-index: 50; background: var(--glass-hi); backdrop-filter: blur(12px); border: 1px solid var(--border-hi); border-radius: var(--radius-lg); box-shadow: var(--shadow-glass); overflow: hidden; width: 280px; transition: all 0.3s ease; display: flex; flex-direction: column;">
+  <div id="call-video-container" style="position: relative; width: 100%; aspect-ratio: 4/3; background: #000; display: none;">
+    <video id="remote-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+    <video id="local-video" autoplay playsinline muted style="position: absolute; bottom: 8px; right: 8px; width: 80px; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.3); background: #222;"></video>
+  </div>
+  <div id="call-audio-container" style="padding: 24px; text-align: center; display: none;">
+    <div style="font-size: 48px; animation: peerPulse 2s infinite;">📞</div>
+    <div style="font-weight: 600; margin-top: 12px; color: var(--text);">Voice Call Active</div>
+    <div id="call-duration" style="font-size: 12px; color: var(--text-2); font-family: var(--mono); margin-top: 4px;">00:00</div>
+  </div>
+  <div style="display: flex; gap: 12px; justify-content: center; padding: 12px; background: var(--bg2);">
+    <button class="btn-icon" id="btn-call-mute" onclick="toggleCallMute()" style="background: var(--bg); border: 1px solid var(--border);">
+      <span class="material-icons-round" id="icon-call-mute">mic</span>
+    </button>
+    <button class="btn-icon" id="btn-call-video" onclick="toggleCallVideo()" style="background: var(--bg); border: 1px solid var(--border);">
+      <span class="material-icons-round" id="icon-call-video">videocam</span>
+    </button>
+    <button class="btn-icon btn-danger" onclick="endCall()">
+      <span class="material-icons-round">call_end</span>
+    </button>
+  </div>
+</div>
+
+<!-- Incoming Call Modal -->
+<div class="modal-backdrop" id="incoming-call-modal">
+  <div class="modal-box" style="max-width: 320px; text-align: center;">
+    <div style="width: 64px; height: 64px; border-radius: 50%; background: rgba(0,212,170,0.1); color: var(--accent); display: flex; align-items: center; justify-content: center; margin: 0 auto; margin-bottom: 16px; animation: peerPulse 1.5s infinite;">
+      <span class="material-icons-round" style="font-size: 32px;" id="incoming-call-icon">call</span>
+    </div>
+    <h3 style="margin-bottom: 8px;">Incoming Call</h3>
+    <p style="font-size: 14px; color: var(--text-2); line-height: 1.5; margin-bottom: 24px;">Your peer is requesting a <span id="incoming-call-type">voice</span> call.</p>
+    <div style="display: flex; gap: 12px; width: 100%;">
+      <button class="btn btn-ghost flex-1" style="color: var(--error);" onclick="declineCall()">Decline</button>
+      <button class="btn btn-accent flex-1" onclick="acceptCall()">Accept</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  SYNCDROP v3 — Full P2P Session Engine
+// ═══════════════════════════════════════════════════════════════
+
+const CHUNK_SIZE   = 64 * 1024;
+const BUFFER_LOW   = 256  * 1024;
+const BUFFER_HIGH  = 2    * 1024 * 1024;
+
+// ── STATE ────────────────────────────────────────────────────
+
+let myPeer       = null;
+let connections  = {}; // peerId -> DataConnection
+let calls        = {}; // peerId -> MediaConnection
+let peersInfo    = {}; // peerId -> {name, emoji}
+let isHost       = false;
+let myCode       = '';
+let qrScanner    = null;
+let qrCreated    = false;
+let sidebarOpen  = false;
+let codePanel    = false;
+let attachedFiles = [];
+let pendingReceives = {};
+let ongoingTransfers = {};
+let totalSentBytes    = 0;
+let totalRecvBytes    = 0;
+let totalSentChunks   = 0;
+let totalRecvChunks   = 0;
+let typingTimer  = null;
+let sharedFilesCache = [];
+let isScreenSharing = false;
+let screenStream = null;
+let screenRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+let draftRecordings = {};
+
+let localStream  = null;
+let micEnabled   = true;
+let camEnabled   = true;
+
+const EMOJI_LIST = [
+  '🦁','🐯','🐻','🐼','🦊','🐺','🦝','🐸','🐙','🦄',
+  '🦋','🐬','🦅','🐝','🦩','🦜','🐳','🦖','🦕','🐲',
+  '🌻','🍀','🌈','⚡','🔥','🌊','🍎','🍇','🎸','🚀',
+  '😎','🤩','🥷','🧙','👾','🤖','👻','🎃','🦸','🧬'
+];
+const ADJECTIVES = ['Swift','Brave','Clever','Mighty','Silent','Cosmic','Neon','Quantum','Ghost','Shadow','Happy','Lucky','Wild','Calm'];
+const EMOJI_NOUNS = {
+  '🦁': 'Lion', '🐯': 'Tiger', '🐻': 'Bear', '🐼': 'Panda', '🦊': 'Fox', '🐺': 'Wolf', '🦝': 'Raccoon', '🐸': 'Frog', '🐙': 'Octopus', '🦄': 'Unicorn',
+  '🦋': 'Butterfly', '🐬': 'Dolphin', '🦅': 'Eagle', '🐝': 'Bee', '🦩': 'Flamingo', '🦜': 'Parrot', '🐳': 'Whale', '🦖': 'T-Rex', '🦕': 'Dino', '🐲': 'Dragon',
+  '🌻': 'Flower', '🍀': 'Clover', '🌈': 'Rainbow', '⚡': 'Spark', '🔥': 'Flame', '🌊': 'Wave', '🍎': 'Apple', '🍇': 'Grape', '🎸': 'Guitar', '🚀': 'Rocket',
+  '😎': 'Cool', '🤩': 'Star', '🥷': 'Ninja', '🧙': 'Wizard', '👾': 'Alien', '🤖': 'Robot', '👻': 'Ghost', '🎃': 'Pumpkin', '🦸': 'Hero', '🧬': 'Helix'
+};
+let myEmoji   = EMOJI_LIST[Math.floor(Math.random() * EMOJI_LIST.length)];
+let myName    = ADJECTIVES[Math.floor(Math.random()*ADJECTIVES.length)] + ' ' + (EMOJI_NOUNS[myEmoji] || 'User');
+
+function fmtBytes(b){ if(!b||b<1)return'0 B';if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';if(b<1073741824)return(b/1048576).toFixed(2)+' MB';return(b/1073741824).toFixed(2)+' GB'; }
+function fmtTime(){ const d=new Date();return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'); }
+function uid(){ return Math.random().toString(36).slice(2,10); }
+function genCode(){ const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join(''); }
+function el(id){ return document.getElementById(id); }
+
+function getPeerConfig(){
+  return {
+    debug:0,
+    config:{ 
+      iceServers:[
+        {urls:'stun:stun.l.google.com:19302'},
+        {urls:'stun:stun1.l.google.com:19302'},
+        {urls:'stun:stun2.l.google.com:19302'},
+        {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443'],username:'openrelayproject',credential:'openrelayproject'}
+      ],
+      iceCandidatePoolSize: 10
+    }
+  };
+}
+
+function getDataChannel(conn){
+  return new Promise(res=>{
+    if(conn.dataChannel){res(conn.dataChannel);return;}
+    let n=0;const p=setInterval(()=>{if(conn.dataChannel){clearInterval(p);res(conn.dataChannel);}else if(++n>30){clearInterval(p);res(null);}},100);
+  });
+}
+
+function toast(msg, type='info', icon='info'){
+  const icons={info:'info',success:'check_circle',error:'error',warn:'warning'};
+  const t=document.createElement('div'); t.className=`toast ${type}`;
+  t.innerHTML=`<span class="material-icons-round" style="color:${type==='success'?'var(--accent)':type==='error'?'var(--error)':'var(--primary)'}">${icons[type]||icon}</span>${msg}`;
+  el('toast-container').appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(30px)'; t.style.transition='all 0.3s'; setTimeout(()=>t.remove(),300); },3000);
+}
+
+function showScreen(id){
+  if (!window.volumeMeterRunning) { window.volumeMeterRunning = true; requestAnimationFrame(updateVolumeMeters); }
+  document.querySelectorAll('.screen').forEach(s=>s.classList.add('hidden'));
+  el(id).classList.remove('hidden');
+}
+
+let emojiGridOpen = false;
+function initEmojiGrid(){
+  const grid = el('emoji-grid'); grid.innerHTML = '';
+  EMOJI_LIST.forEach(e => {
+    const btn = document.createElement('button'); btn.textContent = e; btn.title = e;
+    btn.style.cssText = `font-size:24px;width:42px;height:42px;border:2px solid transparent;border-radius:10px;background:${e===myEmoji?'var(--primary-dim)':'transparent'};cursor:pointer;transition:all 0.2s;border-color:${e===myEmoji?'rgba(37,99,235,0.3)':'transparent'}`;
+    btn.onclick = () => {
+      myEmoji = e; el('my-emoji-display').textContent = e; randomizeName();
+      grid.querySelectorAll('button').forEach(b => {
+        b.style.background = b.textContent===myEmoji ? 'var(--primary-dim)' : 'transparent';
+        b.style.borderColor = b.textContent===myEmoji ? 'rgba(37,99,235,0.3)' : 'transparent';
+      });
+    };
+    grid.appendChild(btn);
+  });
+}
+function toggleEmojiPicker(){
+  emojiGridOpen = !emojiGridOpen; el('emoji-grid').style.display = emojiGridOpen ? 'flex' : 'none';
+  if(emojiGridOpen && !el('emoji-grid').children.length) initEmojiGrid();
+}
+function randomizeName() {
+  myName = ADJECTIVES[Math.floor(Math.random()*ADJECTIVES.length)] + ' ' + (EMOJI_NOUNS[myEmoji] || 'User');
+  el('my-name-display').textContent = myName;
+}
+function toggleTheme() {
+  const body = document.documentElement; const newTheme = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  body.setAttribute('data-theme', newTheme); localStorage.setItem('phantomlink-theme', newTheme);
+  document.querySelectorAll('.theme-icon').forEach(e => e.textContent = newTheme === 'dark' ? 'light_mode' : 'dark_mode');
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  el('my-emoji-display').textContent = myEmoji; el('my-name-display').textContent = myName; initEmojiGrid();
+  const savedTheme = localStorage.getItem('phantomlink-theme') || 'dark'; // default to dark for meet like
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  document.querySelectorAll('.theme-icon').forEach(e => e.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode');
+});
+
+let prejoinIsHost = false;
+let joinCode = '';
+
+
+let audioCtx = null;
+const audioAnalysers = {};
+
+function attachVolumeMeter(id, stream) {
+  if (!stream || stream.getAudioTracks().length === 0) return;
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } 
+    catch(e) { console.error('AudioContext creation failed', e); return; }
+  }
+  if(audioAnalysers[id]) return;
+  try {
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+    audioAnalysers[id] = { analyser, dataArray };
+  } catch (e) { console.error("Audio routing error:", e); }
+  
+  if (!window.volumeMeterRunning) {
+    window.volumeMeterRunning = true;
+    requestAnimationFrame(updateVolumeMeters);
+  }
+}
+
+function removeVolumeMeter(id) {
+  delete audioAnalysers[id];
+}
+
+
+// Radar Sound Wave Visualizer Logic
+function getEmojiHue(emoji) {
+  let hash = 0;
+  if (!emoji) return 0;
+  for(let i=0; i<emoji.length; i++) hash = emoji.charCodeAt(i) + ((hash << 5) - hash);
+  return Math.abs(hash) % 360;
+}
+
+let radarTime = 0;
+
+function drawRadarFrame(id, analyser, dataArray, hue) {
+  const canvas = el(`canvas-${id}`);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, cx = W/2, cy = H/2;
+  
+  ctx.clearRect(0, 0, W, H);
+  
+  const numLayers = 5;
+  const spd = 1.0;
+  const baseAmp = 30;
+  const pts = 200;
+  const minR = 52;
+  const maxR = 175;
+  
+  for (let i = 1; i <= 4; i++) {
+    const r = minR + (maxR - minR) * (i / 4);
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(160,120,180,0.10)'; ctx.lineWidth = 0.5; ctx.stroke();
+  }
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 16) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(angle) * (minR - 6), cy + Math.sin(angle) * (minR - 6));
+    ctx.lineTo(cx + Math.cos(angle) * (maxR + 10), cy + Math.sin(angle) * (maxR + 10));
+    ctx.strokeStyle = 'rgba(160,120,180,0.07)'; ctx.lineWidth = 0.5; ctx.stroke();
+  }
+  
+  let isMicActive = !!(analyser && dataArray);
+  if (isMicActive) analyser.getByteFrequencyData(dataArray);
+
+  function getMicBand(idx, total) {
+    if (!isMicActive) return 0;
+    const bins = dataArray.length;
+    const s = Math.floor(Math.pow(idx / total, 1.5) * bins * 0.75);
+    const e = Math.floor(Math.pow((idx + 1) / total, 1.5) * bins * 0.75) + 1;
+    let sum = 0, cnt = 0;
+    for (let b = s; b < Math.min(e, bins); b++) { sum += dataArray[b]; cnt++; }
+    return cnt ? sum / cnt / 255 : 0;
+  }
+  
+  for (let li = numLayers - 1; li >= 0; li--) {
+    const frac = li / Math.max(numLayers - 1, 1);
+    const layerL = 55 + (0.5 - frac) * 20;
+    const micEnergy = getMicBand(li, numLayers);
+    const layerAmp = isMicActive ? 3 + micEnergy * baseAmp * 2.5 : baseAmp * (0.35 + 0.65 * frac);
+    const baseR = minR + (maxR - minR) * ((li + 1) / numLayers);
+    const phaseOff = li * 0.55;
+    const rotOff = li * 0.20;
+    
+    ctx.beginPath();
+    for (let i = 0; i <= pts; i++) {
+      const angle = (i / pts) * Math.PI * 2;
+      const wave = Math.sin(angle * 3 - radarTime * spd * 1.8 + phaseOff + rotOff) * layerAmp +
+                   Math.sin(angle * 5 + radarTime * spd * 1.1 - phaseOff) * layerAmp * 0.50 +
+                   Math.sin(angle * 7 - radarTime * spd * 0.7 + rotOff * 2) * layerAmp * 0.25 +
+                   (isMicActive ? Math.sin(angle * 11 + radarTime * spd * 2.2 - phaseOff) * micEnergy * layerAmp * 0.45 : 0);
+      const rr = Math.max(minR * 0.4, baseR + wave);
+      const x = cx + Math.cos(angle) * rr;
+      const y = cy + Math.sin(angle) * rr;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    
+    ctx.fillStyle = `hsla(${hue}, 65%, ${layerL}%, ${0.14 + (1 - frac) * 0.18})`;
+    ctx.fill();
+    ctx.strokeStyle = `hsla(${hue}, 65%, ${layerL}%, ${0.55 + (1 - frac) * 0.40})`;
+    ctx.lineWidth = 1.2 + (1 - frac) * 2.2;
+    ctx.stroke();
+  }
+  
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  ctx.arc(cx, cy, minR - 3, 0, Math.PI * 2);
+  ctx.fillStyle = '#000';
+  ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function updateVolumeMeters() {
+  radarTime += 0.016;
+  
+  const localAnalyser = audioAnalysers['local'];
+  const localHue = getEmojiHue(myEmoji);
+  
+  if (el('canvas-prejoin')) {
+    drawRadarFrame('prejoin', localAnalyser ? localAnalyser.analyser : null, localAnalyser ? localAnalyser.dataArray : null, localHue);
+  }
+  
+  if (el('canvas-local')) {
+    drawRadarFrame('local', localAnalyser ? localAnalyser.analyser : null, localAnalyser ? localAnalyser.dataArray : null, localHue);
+  }
+  
+  for (const id in audioAnalysers) {
+    if (id === 'local') continue;
+    const { analyser, dataArray } = audioAnalysers[id];
+    if (el(`canvas-${id}`)) {
+      const peerHue = getEmojiHue(peersInfo[id]?.emoji || '👤');
+      drawRadarFrame(id, analyser, dataArray, peerHue);
+    }
+  }
+  
+  if (Object.keys(audioAnalysers).length > 0 || document.querySelector('.avatar-canvas')) {
+    requestAnimationFrame(updateVolumeMeters);
+  } else {
+    window.volumeMeterRunning = false;
+  }
+}
+
+// Global scope
+function showCreatePanel(){ 
+  el('lobby-choice').classList.add('hidden'); 
+  el('create-panel').classList.add('hidden'); 
+  el('join-panel').classList.add('hidden'); 
+  el('prejoin-panel').classList.remove('hidden'); 
+  prejoinIsHost=true; 
+  startPrejoinMedia(); 
+}
+
+function showJoinPanel(){ el('lobby-choice').classList.add('hidden'); el('join-panel').classList.remove('hidden'); el('create-panel').classList.add('hidden'); el('prejoin-panel').classList.add('hidden'); }
+
+function backToChoice(){ el('lobby-choice').classList.remove('hidden'); el('create-panel').classList.add('hidden'); el('join-panel').classList.add('hidden'); el('prejoin-panel').classList.add('hidden'); if(myPeer)myPeer.destroy();myPeer=null; }
+
+function cancelCreate(){ backToChoice(); }
+
+function prepareJoin() {
+  const code=el('join-code-input').value.trim().toUpperCase();
+  if(!code||code.length<6){ setJoinStatus('error','Invalid code.'); return; }
+  joinCode=code;
+  el('join-panel').classList.add('hidden');
+  el('prejoin-panel').classList.remove('hidden');
+  prejoinIsHost=false;
+  startPrejoinMedia();
+}
+
+
+// --- Sidebar Resizer Logic ---
+(function() {
+  const resizer = el('sidebar-resizer');
+  const sidebar = el('sidebar');
+  let isResizing = false;
+  let startX, startWidth;
+
+  if(resizer && sidebar) {
+    resizer.addEventListener('mousedown', initResize);
+    resizer.addEventListener('touchstart', initResize, {passive: true});
+
+    function initResize(e) {
+      if(window.innerWidth <= 768) return; // Disabled on mobile
+      isResizing = true;
+      startX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      startWidth = parseInt(document.defaultView.getComputedStyle(sidebar).width, 10);
+      resizer.classList.add('dragging');
+      
+      document.addEventListener('mousemove', doResize);
+      document.addEventListener('touchmove', doResize, {passive: false});
+      document.addEventListener('mouseup', stopResize);
+      document.addEventListener('touchend', stopResize);
+      
+      // Prevent text selection while dragging
+      if(e.type === 'mousedown') e.preventDefault();
+    }
+
+    function doResize(e) {
+      if (!isResizing) return;
+      const currentX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+      const diffX = startX - currentX; // Dragging left increases width
+      let newWidth = startWidth + diffX;
+      
+      if (newWidth < 280) newWidth = 280;
+      if (newWidth > 600) newWidth = 600;
+      if (newWidth > window.innerWidth * 0.8) newWidth = window.innerWidth * 0.8;
+      
+      sidebar.style.width = newWidth + 'px';
+      
+      // Also adjust video-grid-container right padding if we want it to push?
+      // Currently the sidebar overlays the grid. So changing width just covers more grid.
+    }
+
+    function stopResize(e) {
+      isResizing = false;
+      resizer.classList.remove('dragging');
+      document.removeEventListener('mousemove', doResize);
+      document.removeEventListener('touchmove', doResize);
+      document.removeEventListener('mouseup', stopResize);
+      document.removeEventListener('touchend', stopResize);
+    }
+  }
+})();
+
+function cancelPrejoin() {
+  if(localStream) { localStream.getTracks().forEach(t=>t.stop()); localStream=null; }
+  backToChoice();
+}
+
+async function startPrejoinMedia() {
+  el('prejoin-avatar-emoji').textContent = myEmoji;
+  const avatarWrap = el('prejoin-avatar-wrap');
+  const avatarCircle = el('prejoin-avatar-circle');
+  const color = getEmojiColor(myEmoji);
+  if(avatarCircle) avatarCircle.style.background = color;
+  if(avatarWrap) avatarWrap.style.background = `linear-gradient(135deg, ${color}33, rgba(15,20,30,0.95))`;
+  
+  const startBtn = el('btn-start-session');
+  if (startBtn) {
+    startBtn.disabled = true;
+    startBtn.textContent = 'Requesting Media...';
+  }
+  
+  try {
+    if(!localStream) localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    el('prejoin-vid').srcObject = localStream;
+    // ensure tracks match state
+    localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+    localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
+  } catch(e) {
+    toast('Camera/Mic not available', 'warn');
+    localStream = new MediaStream(); // empty
+  } finally {
+    updatePrejoinUI();
+    if (startBtn) {
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start Session';
+    }
+  }
+}
+
+function updatePrejoinUI() {
+  el('prejoin-mic-btn').innerHTML = `<span class="material-icons-round">${micEnabled ? 'mic' : 'mic_off'}</span>`;
+  el('prejoin-mic-btn').style.background = micEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(220,38,38,0.8)';
+  el('prejoin-cam-btn').innerHTML = `<span class="material-icons-round">${camEnabled ? 'videocam' : 'videocam_off'}</span>`;
+  el('prejoin-cam-btn').style.background = camEnabled ? 'rgba(255,255,255,0.2)' : 'rgba(220,38,38,0.8)';
+  
+  if(!camEnabled) el('prejoin-avatar-wrap').classList.remove('hidden');
+  else el('prejoin-avatar-wrap').classList.add('hidden');
+}
+
+function togglePrejoinMic() {
+  micEnabled = !micEnabled;
+  if(localStream) localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+  updatePrejoinUI();
+}
+
+function togglePrejoinCam() {
+  camEnabled = !camEnabled;
+  if(localStream) localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
+  updatePrejoinUI();
+}
+
+function proceedToSession() {
+  el('prejoin-panel').classList.add('hidden');
+  if(prejoinIsHost) {
+    startHostPeer();
+  } else {
+    doJoin();
+  }
+}
+
+function updatePeerCount() {
+  const count = Object.keys(connections).length + 1; // +1 for self
+  el('peer-status-text').textContent = count + ' in room';
+  el('peer-dot').className = 'peer-dot ' + (count > 1 ? '' : 'offline');
+}
+
+async function startHostPeer(){
+  isHost=true; myCode=genCode(); el('create-code-value').classList.add('loading'); el('create-code-value').textContent='······';
+  try{
+    myPeer=await initPeer(myCode);
+    el('create-code-value').classList.remove('loading'); el('create-code-value').textContent=myCode;
+    el('session-code-display').textContent=myCode;
+    hasOpenedSession = true; hideConnecting(); showScreen('screen-session');
+    addVideoCell('local', localStream, true, myName, myEmoji);
+    
+    myPeer.on('connection', conn => {
+      // Broadcast existing peers to new joiner
+      conn.on('open', () => {
+        const existing = Object.keys(connections);
+        if(existing.length > 0) conn.send(JSON.stringify({type:'welcome', peers: existing}));
+        setupConn(conn);
+      });
+    });
+    myPeer.on('call', handleIncomingCall);
+  }catch(e){ toast(e.message,'error'); backToChoice(); }
+}
+
+function initPeer(customId){
+  return new Promise((resolve,reject)=>{
+    const id=customId||genCode(); const peer=new Peer(id,getPeerConfig());
+    let resolved=false; const t=setTimeout(()=>{if(!resolved){peer.destroy();reject(new Error('Timeout'));}},30000);
+    peer.on('open',()=>{ resolved=true; clearTimeout(t); resolve(peer); });
+    peer.on('error',err=>{
+      if(resolved)return; clearTimeout(t);
+      if(err.type==='unavailable-id'){peer.destroy();initPeer().then(resolve).catch(reject);return;}
+      peer.destroy(); reject(new Error(err.type));
+    });
+  });
+}
+
+function copyCreateCode(){ navigator.clipboard.writeText(myCode).catch(()=>{}); toast('Code copied!','success'); }
+function copyCreateLink(){ navigator.clipboard.writeText(location.href.split('?')[0]+'?join='+myCode).catch(()=>{}); toast('Link copied!','success'); }
+function toggleCreateQR(){
+  el('create-qr-wrap').classList.toggle('hidden');
+  if(!qrCreated && !el('create-qr-wrap').classList.contains('hidden')){
+    qrCreated=true; el('create-qr').innerHTML='';
+    new QRCode(el('create-qr'),{text:location.href.split('?')[0]+'?join='+myCode,width:200,height:200});
+  }
+}
+
+async function doJoin(){
+  const code = joinCode;
+  setJoinStatus('info','Connecting…'); isHost=false; myCode=code;
+  if(el('session-code-display')) el('session-code-display').textContent=code;
+  showConnecting('Joining room…','Connecting to host');
+  try{
+    myPeer=await initPeer();
+    myPeer.on('call', handleIncomingCall);
+    myPeer.on('connection', conn => setupConn(conn)); // Accept peer-to-peer from others
+  }catch(e){ hideConnecting(); setJoinStatus('error',e.message); return; }
+  const conn=myPeer.connect(code,{reliable:true,serialization:'binary'});
+  setupConn(conn);
+  myPeer.on('error',err=>toast('Peer Error: '+err.type,'error'));
+}
+function setJoinStatus(type,txt){
+  const e=el('join-status'); e.classList.remove('hidden'); e.textContent=txt;
+  e.style.color=type==='error'?'var(--error)':'var(--primary)';
+}
+
+function showConnecting(label,sub){ el('connecting-overlay').classList.remove('hidden'); el('connecting-label').textContent=label; }
+function hideConnecting(){ el('connecting-overlay').classList.add('hidden'); }
+
+let hasOpenedSession = false;
+
+async function setupConn(conn){
+  if(connections[conn.peer]) return; // already connected
+  connections[conn.peer] = conn;
+  peersInfo[conn.peer] = { name: 'Joining...', emoji: '👤' };
+
+  conn.on('open', async ()=>{
+    if(!hasOpenedSession) {
+      hasOpenedSession = true; hideConnecting(); showScreen('screen-session');
+      addVideoCell('local', localStream, true, myName, myEmoji);
+      insertSysEvent('🔒 Secure session established.');
+    }
+    // Exchange info
+    conn.send(JSON.stringify({type:'peer-info', emoji:myEmoji, name:myName, reply:false, camEnabled}));
+    // Call them
+    if(localStream) {
+      const call = myPeer.call(conn.peer, localStream);
+      setupMediaCall(call, conn.peer);
+    }
+    updatePeerCount();
+  });
+  conn.on('data', raw => onData(conn.peer, raw));
+  conn.on('close', ()=>{
+    delete connections[conn.peer];
+    removeVideoCell(conn.peer);
+    updatePeerCount();
+    insertSysEvent(`${peersInfo[conn.peer]?.name || conn.peer} left.`);
+  });
+  conn.on('error', ()=>{});
+}
+
+function handleIncomingCall(call) {
+  call.answer(localStream);
+  setupMediaCall(call, call.peer);
+}
+
+function setupMediaCall(call, peerId) {
+  calls[peerId] = call;
+  call.on('stream', remoteStream => {
+    addVideoCell(peerId, remoteStream, false, peersInfo[peerId]?.name, peersInfo[peerId]?.emoji);
+  });
+  call.on('close', () => { delete calls[peerId]; removeVideoCell(peerId); });
+}
+
+async function onData(peerId, raw){
+  if(typeof raw==='string'){
+    let obj; try{ obj=JSON.parse(raw); }catch(e){ return; }
+    handleCtrl(peerId, obj);
+  } else {
+    handleChunk(peerId, raw);
+  }
+}
+
+
+
+function toggleShareMenu(e) {
+  if(e) e.stopPropagation();
+  el('share-menu').classList.toggle('open');
+}
+function copySessionLink() {
+  const url = location.href.split('?')[0] + '?join=' + (isHost ? myCode : (el('session-code-display') ? el('session-code-display').textContent : ''));
+  navigator.clipboard.writeText(url).then(()=>toast('Link copied','success')).catch(()=>toast('Failed to copy','error'));
+}
+let sessionQrCreated = false;
+function showSessionQR() {
+  el('qr-display-modal').classList.add('open');
+  if(!sessionQrCreated) {
+    sessionQrCreated = true;
+    const url = location.href.split('?')[0] + '?join=' + (isHost ? myCode : (el('session-code-display') ? el('session-code-display').textContent : ''));
+    new QRCode(el('session-qr-container'), {text: url, width: 200, height: 200});
+  }
+}
+function closeSessionQR() {
+  el('qr-display-modal').classList.remove('open');
+}
+
+function toggleAttachMenu(e) {
+  if(e) e.stopPropagation();
+  el('attach-menu').classList.toggle('open');
+}
+document.addEventListener('click', (e) => {
+  const attachMenu = el('attach-menu');
+  if(attachMenu && attachMenu.classList.contains('open') && !e.target.closest('.attach-menu') && !e.target.closest('#attach-btn')) {
+    attachMenu.classList.remove('open');
+  }
+  const shareMenu = el('share-menu');
+  if(shareMenu && shareMenu.classList.contains('open') && !e.target.closest('#share-menu') && !e.target.closest('#session-code-chip')) {
+    shareMenu.classList.remove('open');
+  }
+});
+
+function handleCtrl(peerId, obj){
+  const senderInfo = peersInfo[peerId] || { name: peerId, emoji: '👤' };
+  switch(obj.type){
+    case 'welcome':
+      obj.peers.forEach(p => {
+        if(!connections[p] && p !== myPeer.id) {
+          const conn = myPeer.connect(p, {reliable:true, serialization:'binary'});
+          setupConn(conn);
+        }
+      });
+      break;
+    case 'peer-info':
+      peersInfo[peerId] = { name: obj.name, emoji: obj.emoji };
+      updateVideoCellInfo(peerId, obj.name, obj.emoji);
+      if(obj.camEnabled !== undefined) {
+        const p = el('placeholder-' + peerId);
+        if(p) p.style.display = obj.camEnabled ? 'none' : 'flex';
+      }
+      if(!obj.reply && connections[peerId]) connections[peerId].send(JSON.stringify({type:'peer-info', emoji:myEmoji, name:myName, reply:true, camEnabled}));
+      break;
+    case 'video-state':
+      const pl = el('placeholder-' + peerId);
+      if(pl) pl.style.display = obj.enabled ? 'none' : 'flex';
+      break;
+    case 'text':
+      insertMsg(senderInfo, 'text', { content: obj.content, time: obj.time });
+      break;
+    case 'file-meta':
+      pendingReceives[obj.id]={ meta:obj, chunks:[], received:0, idNum: obj.idNum, peerId };
+      insertMsg(senderInfo, 'file-incoming', { id:obj.id, meta:obj, time: fmtTime() });
+      break;
+    case 'file-end':
+      assembleFile(obj.id);
+      break;
+    case 'code':
+      insertMsg(senderInfo, 'code', { lang:obj.lang, content:obj.content, time:obj.time });
+      break;
+    case 'typing':
+      showTheirTyping(peerId);
+      break;
+    case 'typing-stop':
+      hideTheirTyping();
+      break;
+    case 'file-cancel':
+      if (pendingReceives[obj.id]) {
+        delete pendingReceives[obj.id];
+        const fc = el('fc-'+obj.id);
+        if (fc) fc.closest('.msg-row')?.remove();
+      }
+      break;
+  }
+}
+
+function handleChunk(peerId, raw){
+  let buf; if(raw instanceof ArrayBuffer) buf=raw; else if(raw&&raw.buffer) buf=raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength); else return;
+  if(buf.byteLength < 8) return;
+  const view = new DataView(buf); const idNum = view.getUint32(0); const chunkIdx = view.getUint32(4); const data = buf.slice(8);
+  const pr = Object.values(pendingReceives).find(p => p.idNum === idNum); if(!pr) return;
+  pr.chunks[chunkIdx] = data; pr.received += data.byteLength;
+  const now = Date.now();
+  if(!pr._lastUpdate || now - pr._lastUpdate > 100 || pr.received >= pr.meta.size){
+    pr._lastUpdate = now;
+    updateFileProgress(pr.meta.id, Math.min(100, Math.round(pr.received / pr.meta.size * 100)), fmtBytes(pr.received)+' / '+fmtBytes(pr.meta.size));
+  }
+}
+
+function assembleFile(id){
+  const pr=pendingReceives[id]; if(!pr)return;
+  const blob=new Blob(pr.chunks.filter(Boolean),{type:pr.meta.mime||'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  updateFileComplete(id,{name:pr.meta.name,size:blob.size,mime:pr.meta.mime,url}, false);
+  addToSidebar({id, name:pr.meta.name, size:blob.size, mime:pr.meta.mime, url});
+  delete pendingReceives[id];
+}
+
+function ctrl(obj) {
+  const msg = JSON.stringify(obj);
+  Object.values(connections).forEach(c => { if(c.open) c.send(msg); });
+}
+
+function broadcastChunk(payload) {
+  Object.values(connections).forEach(c => { if(c.open) c.send(payload); });
+}
+
+// ── VIDEO GRID ──
+function getEmojiColor(emoji) {
+  let hash = 0;
+  if (!emoji) return 'hsl(0, 0%, 50%)';
+  for(let i=0; i<emoji.length; i++) hash = emoji.charCodeAt(i) + ((hash << 5) - hash);
+  return `hsl(${Math.abs(hash) % 360}, 65%, 55%)`;
+}
+
+function addVideoCell(id, stream, isLocal, name='Joining...', emoji='👤') {
+  if(el('vid-'+id)) { el('vid-'+id).srcObject = stream; return; }
+  const grid = el('video-grid');
+  const cell = document.createElement('div');
+  cell.className = 'video-cell'; cell.id = 'cell-'+id;
+  const color = getEmojiColor(emoji);
+  cell.innerHTML = `
+    <div class="video-placeholder" id="placeholder-${id}" style="display:none; position:absolute; inset:0; flex-direction:column; align-items:center; justify-content:center; background: linear-gradient(135deg, ${color}33, rgba(15,20,30,0.95)); z-index:5;">
+      <div style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <canvas class="avatar-canvas" id="canvas-${id}" width="420" height="420"></canvas>
+        <div id="placeholder-emoji-wrap-${id}" style="position: relative; z-index: 10; width: 120px; height: 120px; border-radius: 50%; background: ${color}; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 32px rgba(0,0,0,0.4); animation: avatarFloat 3s infinite alternate ease-in-out;">
+          <div id="placeholder-emoji-${id}" style="font-size: 64px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.2));">${emoji}</div>
+        </div>
+      </div>
+    </div>
+    <video id="vid-${id}" autoplay playsinline ${isLocal ? 'muted' : ''}></video>
+    <div class="video-name" id="name-${id}" style="z-index:10;">${emoji} ${escapeHtml(name)} ${isLocal ? '(You)' : ''}</div>
+  `;
+  grid.appendChild(cell);
+  el('vid-'+id).srcObject = stream;
+  attachVolumeMeter(id, stream);
+  if(isLocal && !camEnabled) el('placeholder-'+id).style.display = 'flex';
+}
+function removeVideoCell(id) { removeVolumeMeter(id); const c = el('cell-'+id); if(c) c.remove(); }
+function updateVideoCellInfo(id, name, emoji) {
+  const n = el('name-'+id);
+  if(n) n.innerHTML = `${emoji} ${escapeHtml(name)}`;
+  const p = el('placeholder-emoji-'+id);
+  if(p) p.textContent = emoji;
+  const w = el('placeholder-emoji-wrap-'+id);
+  if(w) w.style.background = getEmojiColor(emoji);
+}
+
+
+async function toggleScreenShare() {
+  if (!isScreenSharing) {
+    try {
+      screenStream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          displaySurface: "monitor",
+          frameRate: { ideal: 30, max: 60 }
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      });
+      const screenTrack = screenStream.getVideoTracks()[0];
+      
+      Object.values(calls).forEach(call => {
+        if (!call.peerConnection) return;
+        const senders = call.peerConnection.getSenders();
+        const sender = senders.find(s => s.track && s.track.kind === 'video');
+        if (sender) sender.replaceTrack(screenTrack);
+      });
+      
+      el('vid-local').srcObject = screenStream;
+      
+      screenTrack.onended = () => stopScreenShare();
+      isScreenSharing = true;
+      el('btn-screen').classList.add('active');
+    } catch (e) {
+      console.error(e);
+      toast('Screen share cancelled', 'warn');
+    }
+  } else {
+    stopScreenShare();
+  }
+}
+
+function stopScreenShare() {
+  if (screenStream) {
+    screenStream.getTracks().forEach(t => t.stop());
+    screenStream = null;
+  }
+  isScreenSharing = false;
+  el('btn-screen').classList.remove('active');
+  
+  if (localStream) {
+    const camTrack = localStream.getVideoTracks()[0];
+    Object.values(calls).forEach(call => {
+      if (!call.peerConnection) return;
+      const senders = call.peerConnection.getSenders();
+      const sender = senders.find(s => s.track && s.track.kind === 'video');
+      if (sender && camTrack) sender.replaceTrack(camTrack);
+    });
+    el('vid-local').srcObject = localStream;
+  }
+}
+
+async function toggleRecording() {
+  if (!isRecording) {
+    try {
+      const recordStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      screenRecorder = new MediaRecorder(recordStream);
+      recordedChunks = [];
+      
+      screenRecorder.ondataavailable = e => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+      
+      screenRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const id = Date.now().toString();
+        draftRecordings[id] = blob;
+        currentDraftId = id;
+        
+        el('draft-recording-modal').classList.add('open');
+        
+        recordStream.getTracks().forEach(t => t.stop());
+        el('btn-record').classList.remove('active-danger');
+        isRecording = false;
+      };
+      
+      screenRecorder.start();
+      isRecording = true;
+      el('btn-record').classList.add('active-danger');
+      toast('Recording started...', 'success');
+      
+      recordStream.getVideoTracks()[0].onended = () => {
+        if (isRecording) screenRecorder.stop();
+      };
+    } catch(e) {
+      console.error(e);
+      toast('Recording cancelled or failed', 'error');
+    }
+  } else {
+    screenRecorder.stop();
+  }
+}
+
+function sendDraftRecording(id) {
+  const blob = draftRecordings[id];
+  if(!blob) return;
+  const file = new File([blob], `Screen_Recording_${id}.webm`, { type: 'video/webm' });
+  sendFile(file);
+  const msgEl = el('draft-'+id);
+  if (msgEl) msgEl.remove();
+  delete draftRecordings[id];
+  toast('Screen recording sent to room.', 'success');
+}
+
+function downloadDraftRecording(id) {
+  const blob = draftRecordings[id];
+  if(!blob) return;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Screen_Recording_${id}.webm`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  const msgEl = el('draft-'+id);
+  if (msgEl) msgEl.remove();
+  delete draftRecordings[id];
+  toast('Recording saved locally.', 'success');
+}
+
+let currentDraftId = null;
+
+function closeDraftModal() {
+  el('draft-recording-modal').classList.remove('open');
+  currentDraftId = null;
+}
+
+function sendDraftRecordingModal() {
+  if (currentDraftId) sendDraftRecording(currentDraftId);
+  closeDraftModal();
+}
+
+function downloadDraftRecordingModal() {
+  if (currentDraftId) downloadDraftRecording(currentDraftId);
+  closeDraftModal();
+}
+
+function toggleLocalMic() {
+  if(!localStream) return;
+  micEnabled = !micEnabled;
+  localStream.getAudioTracks().forEach(t => t.enabled = micEnabled);
+  el('btn-mic').innerHTML = `<span class="material-icons-round">${micEnabled ? 'mic' : 'mic_off'}</span>`;
+  el('btn-mic').classList.toggle('active-danger', !micEnabled);
+}
+function toggleLocalCam() {
+  if(!localStream) return;
+  camEnabled = !camEnabled;
+  localStream.getVideoTracks().forEach(t => t.enabled = camEnabled);
+  el('btn-cam').innerHTML = `<span class="material-icons-round">${camEnabled ? 'videocam' : 'videocam_off'}</span>`;
+  el('btn-cam').classList.toggle('active-danger', !camEnabled);
+  
+  const placeholder = el('placeholder-local');
+  if(placeholder) placeholder.style.display = camEnabled ? 'none' : 'flex';
+  
+  ctrl({type: 'video-state', enabled: camEnabled});
+}
+
+// ── SEND FUNCTIONS ──
+function sendMessage(){
+  const codeOpen=el('code-compose-panel').classList.contains('open');
+  if(codeOpen){ sendCode(); return; }
+  const input=el('composer-input'); const txt=input.value.trim(); const hasFiles=attachedFiles.length>0;
+  if(txt){
+    const msgObj = {type:'text',content:txt,time:fmtTime()};
+    ctrl(msgObj);
+    insertMsg({name:myName, emoji:myEmoji}, 'text', {content:txt, time:msgObj.time}, true);
+    input.value=''; input.style.height='';
+  }
+  if(hasFiles) sendPendingFiles();
+}
+
+async function sendPendingFiles(){
+  const files=[...attachedFiles]; attachedFiles=[];
+  el('attach-chips').innerHTML=''; el('attach-chips').classList.add('hidden');
+  for(const file of files) await sendFile(file);
+}
+
+async function sendFile(file){
+  const id=uid(); ongoingTransfers[id] = { paused: false, canceled: false };
+  const totalChunks=Math.ceil(file.size/CHUNK_SIZE);
+  let idNum=0; for(let i=0;i<id.length;i++) idNum=(idNum*31+id.charCodeAt(i))>>>0;
+  
+  ctrl({type:'file-meta',id,idNum,name:file.name,size:file.size,mime:file.type,totalChunks});
+  insertMsg({name:myName, emoji:myEmoji},'file-sending',{id,meta:{name:file.name,size:file.size,mime:file.type,id},time:fmtTime()}, true);
+  addToSidebar({id, name:file.name, size:file.size, mime:file.type});
+
+  let offset=0, chunkIdx=0, sent=0;
+  while(offset<file.size){
+    if(ongoingTransfers[id].canceled) break;
+    if(ongoingTransfers[id].paused) {
+      await new Promise(r=>setTimeout(r, 100));
+      continue;
+    }
+    const chunk=await file.slice(offset,offset+CHUNK_SIZE).arrayBuffer();
+    const payload=new ArrayBuffer(8+chunk.byteLength); const view=new DataView(payload);
+    view.setUint32(0,idNum); view.setUint32(4,chunkIdx);
+    new Uint8Array(payload,8).set(new Uint8Array(chunk));
+    broadcastChunk(payload);
+    offset+=chunk.byteLength; sent+=chunk.byteLength; chunkIdx++;
+    if(!ongoingTransfers[id]._lastUpdate || Date.now() - ongoingTransfers[id]._lastUpdate > 100 || sent >= file.size){
+      ongoingTransfers[id]._lastUpdate = Date.now();
+      updateFileProgress(id, Math.min(100,Math.round(sent/file.size*100)), fmtBytes(sent)+' / '+fmtBytes(file.size));
+    }
+    if(chunkIdx%16===0) await new Promise(r=>setTimeout(r,0));
+  }
+  if(ongoingTransfers[id].canceled) return;
+  ctrl({type:'file-end',id});
+  const objectUrl = URL.createObjectURL(file);
+  updateFileComplete(id,{name:file.name,size:file.size,mime:file.type,url:objectUrl},true);
+  addToSidebar({id, name:file.name, size:file.size, mime:file.type, url:objectUrl});
+  delete ongoingTransfers[id];
+}
+
+function sendCode(){
+  const ta=el('code-compose-ta'); const content=ta.value.trim();
+  if(!content){ toast('Write some code first.','warn'); return; }
+  const lang=el('code-lang-select').value; const t=fmtTime();
+  ctrl({type:'code',lang,content,time:t});
+  insertMsg({name:myName, emoji:myEmoji},'code',{lang,content,time:t}, true);
+  ta.value=''; toggleCodePanel();
+}
+
+function insertMsg(sender, kind, data, isSent=false){
+  removeChatEmpty(); const feed=el('chat-feed');
+  const row=document.createElement('div'); row.className='msg-row '+(isSent?'sent':'');
+  row.dataset.msgId=data.id||uid();
+  const bgStyle = isSent ? 'background:linear-gradient(135deg,#DBEAFE,#EDE9FE)' : 'background:linear-gradient(135deg,#DCFCE7,#FEF9C3)';
+  const avatar=`<div class="msg-avatar" style="${bgStyle};font-size:18px" title="${escapeHtml(sender.name)}">${sender.emoji}</div>`;
+  let inner='';
+  if(kind==='text'){
+    inner=`${avatar}<div class="msg-content"><div style="font-size:10px;color:var(--text-3);margin-bottom:2px;padding:0 4px">${escapeHtml(sender.name)}</div><div class="bubble ${isSent?'sent':'them'}">${escapeHtml(data.content)}</div><div class="msg-time">${data.time}</div></div>`;
+  } else if(kind.startsWith('file')){
+    inner=`${avatar}<div class="msg-content"><div style="font-size:10px;color:var(--text-3);margin-bottom:2px;padding:0 4px">${escapeHtml(sender.name)}</div>${buildFileCard(data.meta, null, data.id, kind==='file-sending')}<div class="msg-time">${data.time}</div></div>`;
+  } else if(kind==='code'){
+    let hl=''; try{ hl=hljs.highlight(data.content,{language:data.lang,ignoreIllegals:true}).value; }catch(e){ hl=escapeHtml(data.content); }
+    inner=`${avatar}<div class="msg-content"><div style="font-size:10px;color:var(--text-3);margin-bottom:2px;padding:0 4px">${escapeHtml(sender.name)}</div><div class="code-card"><div class="code-card-header"><span class="code-lang-badge">${data.lang}</span><button class="btn-icon" style="width:28px;height:28px" onclick="copyCodeSnippet(this)"><span class="material-icons-round" style="font-size:15px">content_copy</span></button></div><div class="code-card-body"><pre class="hljs"><code>${hl}</code></pre></div></div><div class="msg-time">${data.time}</div></div>`;
+  }
+  row.innerHTML=inner; feed.appendChild(row); scrollFeed();
+}
+
+function removeChatEmpty(){ const e=el('chat-empty'); if(e) e.remove(); }
+function scrollFeed(){ const f=el('chat-feed'); f.scrollTop=f.scrollHeight; }
+function insertSysEvent(text){ removeChatEmpty(); const div=document.createElement('div'); div.className='sys-event'; div.innerHTML=`<div class="sys-line"></div><div class="sys-text">${text}</div><div class="sys-line"></div>`; el('chat-feed').appendChild(div); scrollFeed(); }
+
+function getFileColor(mime){ if(!mime)return'#64748B'; if(mime.startsWith('image'))return'#4F9EFF'; if(mime.startsWith('video'))return'#8B5CF6'; if(mime.startsWith('audio'))return'#00D4AA'; if(mime.includes('pdf'))return'#FF4D6A'; return'#3B82F6'; }
+function getFileIcon(mime){ if(!mime)return'insert_drive_file'; if(mime.startsWith('image'))return'image'; if(mime.startsWith('video'))return'videocam'; if(mime.startsWith('audio'))return'headphones'; if(mime.includes('pdf'))return'picture_as_pdf'; return'insert_drive_file'; }
+
+function buildFileCard(meta, url, id, isSending){
+  const mime=meta.mime||''; const color=getFileColor(mime); const icon=getFileIcon(mime);
+  let preview=url ? (mime.startsWith('image') ? `<div class="file-card-preview" style="max-height:220px"><img src="${url}" onclick="openLightbox('${url}')" style="cursor:zoom-in;max-height:220px"></div>` : `<div class="file-card-preview doc-preview" style="min-height:80px"><span class="doc-icon material-icons-round" style="color:${color}">${icon}</span></div>`) : `<div class="file-card-preview doc-preview" style="min-height:70px;background:var(--bg3)"><span class="material-icons-round" style="font-size:36px;color:${color};opacity:0.5">${icon}</span></div>`;
+  const down = url ? `<a href="${url}" download="${escapeHtml(meta.name)}" class="btn-icon" style="flex-shrink:0"><span class="material-icons-round" style="font-size:18px;color:var(--accent)">download</span></a>` : '';
+  const prog = !url ? `<div class="file-card-progress" id="progress-${id}"><div class="progress-track"><div class="progress-fill" id="pf-${id}" style="width:0%"></div></div><div class="progress-label"><span id="ps-${id}">${isSending?'Sending…':'Waiting…'}</span><span id="pp-${id}">0%</span></div></div>` : '';
+  return `<div class="file-card" id="fc-${id}">${preview}<div class="file-card-body"><span class="material-icons-round" style="color:${color};font-size:22px;flex-shrink:0">${icon}</span><div class="file-card-info"><div class="file-card-name">${escapeHtml(meta.name)}</div><div class="file-card-meta">${fmtBytes(meta.size)}</div></div>${down}</div>${prog}</div>`;
+}
+
+function updateFileProgress(id, pct, label){
+  const pf=el('pf-'+id), pp=el('pp-'+id), ps=el('ps-'+id);
+  if(pf) pf.style.width=pct+'%'; if(pp) pp.textContent=pct+'%'; if(ps&&label) ps.textContent=label;
+}
+function updateFileComplete(id, fileData, isSent){
+  const fc=el('fc-'+id); if(!fc)return;
+  const prog=el('progress-'+id); if(prog) prog.remove();
+  const tmp=document.createElement('div'); tmp.innerHTML=buildFileCard(fileData, fileData.url, id, false);
+  fc.replaceWith(tmp.firstElementChild);
+}
+
+function toggleSidebar(){
+  sidebarOpen = !sidebarOpen;
+  el('sidebar').classList.toggle('collapsed', !sidebarOpen);
+}
+
+function addToSidebar(file){
+  let ex = sharedFilesCache.find(f => f.id === file.id);
+  if (ex) { Object.assign(ex, file); return; }
+  sharedFilesCache.push(file);
+  const list=el('shared-files-list'); if(sharedFilesCache.length===1) list.innerHTML='';
+  const color=getFileColor(file.mime); const icon=getFileIcon(file.mime);
+  const row=document.createElement('div'); row.className='sidebar-file-row';
+  row.innerHTML=`<div class="sidebar-file-icon" style="background:${color}22"><span class="material-icons-round" style="color:${color}">${icon}</span></div><div class="sidebar-file-info"><div class="sidebar-file-name">${escapeHtml(file.name)}</div><div class="sidebar-file-size">${fmtBytes(file.size)}</div></div>`;
+  list.appendChild(row);
+  if(file.url){ row.style.cursor='pointer'; row.onclick=()=>{ const a=document.createElement('a');a.href=file.url;a.download=file.name;document.body.appendChild(a);a.click();a.remove(); }; }
+}
+
+function downloadAllFiles() {
+  sharedFilesCache.forEach(file => {
+    if (file.url) { const a=document.createElement('a');a.href=file.url;a.download=file.name;document.body.appendChild(a);a.click();a.remove(); }
+  });
+}
+
+function copyCodeSnippet(btn){
+  const pre=btn.closest('.code-card').querySelector('pre'); navigator.clipboard.writeText(pre.textContent).catch(()=>{});
+  btn.querySelector('.material-icons-round').textContent='check'; setTimeout(()=>btn.querySelector('.material-icons-round').textContent='content_copy',2000);
+}
+function escapeHtml(t){ return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function onFilesAttached(files){
+  Array.from(files).forEach(f=>{
+    if(attachedFiles.some(x=>x.name===f.name))return;
+    attachedFiles.push(f);
+    const chip=document.createElement('div'); chip.className='attach-chip'; chip.dataset.fname=f.name;
+    chip.innerHTML=`<span class="material-icons-round" style="font-size:14px">${getFileIcon(f.type)}</span>${escapeHtml(f.name)}<button class="chip-remove" onclick="removeAttach('${f.name}')"><span class="material-icons-round">close</span></button>`;
+    el('attach-chips').appendChild(chip);
+  });
+  if(attachedFiles.length) el('attach-chips').classList.remove('hidden');
+  el('file-attach-input').value='';
+}
+function removeAttach(name){
+  attachedFiles=attachedFiles.filter(f=>f.name!==name);
+  el('attach-chips').querySelectorAll('.attach-chip').forEach(c=>{ if(c.dataset.fname===name) c.remove(); });
+  if(!attachedFiles.length) el('attach-chips').classList.add('hidden');
+}
+
+function toggleCodePanel(){ codePanel=!codePanel; el('code-compose-panel').classList.toggle('open'); }
+function handleComposerKey(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); } }
+function autoResizeTextarea(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function copySessionCode(){ navigator.clipboard.writeText(myCode).catch(()=>{}); toast('Code copied!','success'); }
+
+function endSession(){
+  el('end-session-modal').classList.add('open');
+}
+function closeEndSessionModal(){ el('end-session-modal').classList.remove('open'); }
+function confirmEndSession(){
+  closeEndSessionModal();
+  Object.values(connections).forEach(c=>c.close());
+  if(myPeer) myPeer.destroy();
+  if(localStream) localStream.getTracks().forEach(t=>t.stop());
+  location.reload();
+}
+
+function openLightbox(url){ el('lightbox-img').src=url; el('lightbox').classList.add('open'); }
+function closeLightbox(){ el('lightbox').classList.remove('open'); el('lightbox-img').src=''; }
+
+function openQRScanner(){
+  el('qr-modal').classList.add('open');
+  qrScanner=new Html5Qrcode('qr-reader');
+  qrScanner.start({facingMode:'environment'},{fps:10,qrbox:{width:200,height:200}},txt=>{
+    try{ const u=new URL(txt); const p=u.searchParams.get('join'); if(p) txt=p; }catch(e){}
+    closeQRScanner(); el('join-code-input').value=txt.slice(0,6).toUpperCase(); prepareJoin();
+  },()=>{}).catch(()=>{});
+}
+function closeQRScanner(){ el('qr-modal').classList.remove('open'); if(qrScanner) qrScanner.stop().then(()=>qrScanner.clear()); }
+window.addEventListener('load',()=>{ const j=new URLSearchParams(location.search).get('join'); if(j){ showJoinPanel(); el('join-code-input').value=j.toUpperCase().slice(0,6); } });
+
+
+function sendTyping(){
+  if(Object.keys(connections).length===0) return;
+  ctrl({type:'typing'});
+  clearTimeout(typingTimer);
+  typingTimer=setTimeout(()=>ctrl({type:'typing-stop'}),2000);
+}
+
+function showTheirTyping(peerId){
+  const senderInfo = peersInfo[peerId] || { name: peerId, emoji: '👤' };
+  const ind = el('typing-indicator');
+  const av = ind.querySelector('.msg-avatar');
+  if(av) av.textContent = senderInfo.emoji;
+  ind.classList.remove('hidden');
+  scrollFeed();
+  setTimeout(()=>hideTheirTyping(),3000);
+}
+
+function hideTheirTyping(){
+  el('typing-indicator').classList.add('hidden');
+}
+
+let mediaRecorder;
+let audioChunks = [];
+let audioStartTime;
+let audioTimer;
+let audioCanceled = false;
+
+async function startAudioRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      if (audioChunks.length > 0 && !audioCanceled) {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        const audioFile = new File([audioBlob], `Voice_Message_${fmtTime().replace(':','-')}.webm`, { type: 'audio/webm' });
+        sendFile(audioFile);
+      }
+      audioChunks = [];
+    };
+    audioChunks = [];
+    audioCanceled = false;
+    mediaRecorder.start();
+    el('audio-record-overlay').classList.add('active');
+    audioStartTime = Date.now();
+    audioTimer = setInterval(() => {
+      const sec = Math.floor((Date.now() - audioStartTime) / 1000);
+      el('audio-record-time').textContent = `${Math.floor(sec/60).toString().padStart(2,'0')}:${(sec%60).toString().padStart(2,'0')}`;
+    }, 1000);
+  } catch(e) { toast('Microphone access denied','error'); }
+}
+
+function cancelAudioRecording() {
+  audioCanceled = true;
+  stopAudioRecording();
+}
+
+function finishAndSendAudio() {
+  stopAudioRecording();
+}
+
+function stopAudioRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  clearInterval(audioTimer);
+  el('audio-record-overlay').classList.remove('active');
+}
+
+function pauseResumeFile(id) {
+  let t = ongoingTransfers[id];
+  if (t) {
+    t.paused = !t.paused;
+    let btn = el('btn-pr-'+id);
+    if (btn) btn.innerHTML = `<span class="material-icons-round" style="font-size:16px">${t.paused ? 'play_arrow' : 'pause'}</span>`;
+    let ps = el('ps-'+id);
+    if (ps) ps.textContent = t.paused ? 'Paused' : 'Sending…';
+  }
+}
+
+function cancelFile(id) {
+  if (ongoingTransfers[id]) ongoingTransfers[id].canceled = true;
+  const fc = el('fc-'+id);
+  if (fc) fc.closest('.msg-row')?.remove();
+  ctrl({type: 'file-cancel', id});
+}
+
+function deleteFile(id) {
+  const fc = el('fc-'+id);
+  if (fc) fc.closest('.msg-row')?.remove();
+  
+  const items = document.querySelectorAll('.sidebar-file-row');
+  items.forEach(item => { if (item.dataset.fileId === id) item.remove(); });
+  
+  const file = sharedFilesCache.find(f => f.id === id);
+  if (file && file.url) URL.revokeObjectURL(file.url);
+  
+  sharedFilesCache = sharedFilesCache.filter(f => f.id !== id);
+  if (sharedFilesCache.length === 0) {
+    el('shared-files-list').innerHTML = '<div style="font-size:12px;color:var(--text-3);text-align:center;padding:16px 0">No files yet</div>';
+  }
+}
+
+</script>
+</body>
+</html>
