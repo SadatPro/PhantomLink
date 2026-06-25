@@ -283,8 +283,8 @@ html, body {
 .room-code-value.loading { animation: codePulse 1.5s ease-in-out infinite; color: var(--text-3); }
 @keyframes codePulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
 
-.code-actions-row { display: flex; gap: 10px; }
-.code-actions-row .btn { flex: 1; }
+.code-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.code-actions-row .btn { width: 100%; padding: 0 12px; }
 
 .qr-toggle-area { border-radius: var(--radius-md); overflow: hidden; }
 .qr-inner { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; background: var(--bg3); border-radius: var(--radius-md); border: 1px solid var(--border); }
@@ -712,6 +712,92 @@ html, body {
 .modal-backdrop.open .modal-box { transform: scale(1); }
 .modal-box h3 { font-size: 18px; font-weight: 700; color: var(--text); }
 
+/* ── FULLSCREEN CALL ── */
+#call-widget.fullscreen {
+  position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+  width: 100% !important; height: 100% !important; z-index: 9999 !important;
+  border-radius: 0 !important; border: none !important; background: #000 !important;
+}
+#call-widget.fullscreen #call-video-container {
+  height: 100% !important; width: 100% !important; aspect-ratio: auto !important;
+}
+#call-widget.fullscreen .video-main {
+  object-fit: contain;
+}
+#call-widget.fullscreen .video-pip {
+  bottom: 100px !important;
+  right: 20px !important;
+  z-index: 99 !important;
+}
+.video-pip:hover #pip-hide-btn {
+  opacity: 1 !important;
+}
+#call-widget.fullscreen #pip-show-btn {
+  bottom: 100px !important;
+  right: 20px !important;
+  z-index: 99 !important;
+}
+#call-widget.fullscreen #call-audio-container {
+  flex: 1 !important; display: flex !important; flex-direction: column; justify-content: center; align-items: center;
+  background: var(--bg) !important;
+  padding-bottom: 100px !important;
+}
+#call-widget.fullscreen > div:last-child {
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  padding: 16px !important;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+  z-index: 100 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  display: flex !important;
+  justify-content: center !important;
+  gap: 16px !important;
+}
+#call-widget.fullscreen > div:last-child .btn-icon {
+  width: 48px !important;
+  height: 48px !important;
+}
+#call-widget.fullscreen > div:last-child .btn-icon .material-icons-round {
+  font-size: 24px !important;
+}
+#call-widget.fullscreen > div:last-child .btn-icon:not(.btn-danger) {
+  background: rgba(255,255,255,0.15) !important; border: none !important; color: #fff !important;
+}
+#call-widget.fullscreen > div:last-child .btn-icon:not(.btn-danger):hover {
+  background: rgba(255,255,255,0.25) !important;
+}
+#call-widget.fullscreen > div:last-child .btn-danger {
+  background: var(--error) !important;
+  color: #fff !important;
+  border: none !important;
+}
+#call-widget.fullscreen > div:last-child .btn-danger:hover {
+  background: #ff4d4d !important;
+}
+.video-main {
+  width: 100%; height: 100%; object-fit: cover; transition: all 0.3s ease;
+}
+.video-pip {
+  position: absolute; bottom: 16px; right: 16px; width: 120px; aspect-ratio: 3/4; object-fit: cover;
+  border-radius: 12px; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  background: #222; cursor: pointer; transition: all 0.3s ease; z-index: 2;
+}
+.video-pip:hover { transform: scale(1.05); }
+
+/* ── MSG DELETE ── */
+.msg-delete-btn {
+  background: transparent; border: none; color: var(--text-3); cursor: pointer;
+  opacity: 0; transition: opacity 0.2s; padding: 2px 4px;
+  display: flex; align-items: center; justify-content: center;
+}
+.msg-row:hover .msg-delete-btn { opacity: 1; }
+.msg-delete-btn:hover { color: var(--error); }
+
 /* ── LIGHTBOX ── */
 .lightbox {
   position: fixed; inset: 0; z-index: 200;
@@ -1009,6 +1095,9 @@ html, body {
         <button class="btn btn-ghost" onclick="copyCreateLink()">
           <span class="material-icons-round">link</span> Copy Link
         </button>
+        <button class="btn btn-ghost" onclick="shareRoom()">
+          <span class="material-icons-round">share</span> Share
+        </button>
         <button class="btn btn-ghost" onclick="toggleCreateQR()" id="create-qr-toggle-btn">
           <span class="material-icons-round">qr_code</span> QR
         </button>
@@ -1102,8 +1191,11 @@ html, body {
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-      <div class="sidebar-section" style="display:flex; justify-content:space-between; align-items:center;">
-        <div class="session-code-chip" id="session-code-chip" onclick="copySessionCode()" title="Click to copy code" style="font-size: 13px; padding: 6px 16px;"></div>
+      <div class="sidebar-section" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <div class="session-code-chip" id="session-code-chip" onclick="copySessionCode()" title="Click to copy code" style="font-size: 13px; padding: 6px 16px; margin-right: auto;"></div>
+        <button class="btn-icon" onclick="showSessionQR()" title="Show Join QR Code">
+          <span class="material-icons-round">qr_code</span>
+        </button>
         <button class="btn-icon" onclick="toggleTheme()" title="Toggle Dark Mode">
           <span class="material-icons-round theme-icon">dark_mode</span>
         </button>
@@ -1205,14 +1297,17 @@ html, body {
             <!-- Audio Recording Overlay -->
             <div id="audio-record-overlay" class="audio-overlay">
               <div style="display:flex; align-items:center; gap:12px;">
-                <div class="record-dot"></div>
+                <div class="record-dot" id="audio-record-dot"></div>
                 <div id="audio-record-time" style="font-family:var(--mono); font-size:14px; font-weight:600; color:var(--text);">00:00</div>
               </div>
               <div style="display:flex; align-items:center; gap:8px;">
                 <button class="btn-icon btn-danger" onclick="cancelAudioRecording()" title="Cancel">
                   <span class="material-icons-round" style="font-size:18px">delete</span>
                 </button>
-                <button class="btn-icon btn-accent" onclick="finishAndSendAudio()" title="Send">
+                <button class="btn-icon" id="btn-audio-stop" onclick="stopAudioRecording()" title="Stop Recording" style="background:var(--warn);color:#fff">
+                  <span class="material-icons-round" style="font-size:18px">stop</span>
+                </button>
+                <button class="btn-icon btn-accent hidden" id="btn-audio-send" onclick="finishAndSendAudio()" title="Send">
                   <span class="material-icons-round" style="font-size:18px">send</span>
                 </button>
               </div>
@@ -1284,8 +1379,16 @@ html, body {
 <!-- Call Widget -->
 <div id="call-widget" class="hidden" style="position: absolute; top: 80px; right: 20px; z-index: 50; background: var(--glass-hi); backdrop-filter: blur(12px); border: 1px solid var(--border-hi); border-radius: var(--radius-lg); box-shadow: var(--shadow-glass); overflow: hidden; width: 280px; transition: all 0.3s ease; display: flex; flex-direction: column;">
   <div id="call-video-container" style="position: relative; width: 100%; aspect-ratio: 4/3; background: #000; display: none;">
-    <video id="remote-video" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
-    <video id="local-video" autoplay playsinline muted style="position: absolute; bottom: 8px; right: 8px; width: 80px; aspect-ratio: 3/4; object-fit: cover; border-radius: 8px; border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 4px 12px rgba(0,0,0,0.3); background: #222;"></video>
+    <video id="remote-video" class="video-main" autoplay playsinline></video>
+    <div id="local-video-wrap" class="video-pip" onclick="handlePipClick(event)">
+      <video id="local-video" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit; pointer-events: none;" autoplay playsinline muted></video>
+      <button id="pip-hide-btn" onclick="hidePip(event)" style="position: absolute; top: 6px; right: 6px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.6); border: none; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 5; transition: opacity 0.2s; opacity: 0;" title="Hide mini window">
+        <span class="material-icons-round" style="font-size: 14px;">close</span>
+      </button>
+    </div>
+    <button id="pip-show-btn" onclick="showPip()" class="hidden" style="position: absolute; bottom: 16px; right: 16px; padding: 8px 12px; border-radius: var(--radius-full); background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: var(--font); font-size: 12px; font-weight: 600; z-index: 10; backdrop-filter: blur(8px); transition: var(--transition);">
+      <span class="material-icons-round" style="font-size: 16px;">visibility</span> Show Mini Window
+    </button>
   </div>
   <div id="call-audio-container" style="padding: 24px; text-align: center; display: none;">
     <div style="font-size: 48px; animation: peerPulse 2s infinite;">📞</div>
@@ -1293,6 +1396,9 @@ html, body {
     <div id="call-duration" style="font-size: 12px; color: var(--text-2); font-family: var(--mono); margin-top: 4px;">00:00</div>
   </div>
   <div style="display: flex; gap: 12px; justify-content: center; padding: 12px; background: var(--bg2);">
+    <button class="btn-icon" id="btn-call-fullscreen" onclick="toggleCallFullscreen()" style="background: var(--bg); border: 1px solid var(--border);">
+      <span class="material-icons-round" id="icon-call-fullscreen">fullscreen</span>
+    </button>
     <button class="btn-icon" id="btn-call-mute" onclick="toggleCallMute()" style="background: var(--bg); border: 1px solid var(--border);">
       <span class="material-icons-round" id="icon-call-mute">mic</span>
     </button>
@@ -1317,6 +1423,19 @@ html, body {
       <button class="btn btn-ghost flex-1" style="color: var(--error);" onclick="declineCall()">Decline</button>
       <button class="btn btn-accent flex-1" onclick="acceptCall()">Accept</button>
     </div>
+  </div>
+</div>
+
+<!-- Session QR Modal -->
+<div class="modal-backdrop" id="session-qr-modal" onclick="if(event.target===this)closeSessionQRModal()">
+  <div class="modal-box" style="max-width: 320px; text-align: center;">
+    <h3 style="margin-bottom: 4px;">Session QR Code</h3>
+    <p style="font-size: 13px; color: var(--text-2); line-height: 1.5; margin-bottom: 8px;">Scan this QR code with another device to join/rejoin this session.</p>
+    <div id="session-qr-display" style="padding: 16px; background: white; border-radius: var(--radius-md); display: inline-block; margin-bottom: 12px; border: 1px solid var(--border-hi);"></div>
+    <div style="font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: 4px; margin-bottom: 16px;" id="session-qr-code-text">CODE</div>
+    <button class="btn btn-ghost btn-full" onclick="closeSessionQRModal()">
+      <span class="material-icons-round">close</span> Close
+    </button>
   </div>
 </div>
 
@@ -1502,6 +1621,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const savedTheme = localStorage.getItem('phantomlink-theme') || 'light';
   document.documentElement.setAttribute('data-theme', savedTheme);
   document.querySelectorAll('.theme-icon').forEach(el => el.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode');
+  initPipDrag();
 });
 
 // ── LOBBY: PANEL LOGIC ───────────────────────────────────────
@@ -1580,6 +1700,18 @@ function copyCreateLink(){
   const url=location.href.split('?')[0]+'?join='+myCode;
   navigator.clipboard.writeText(url).catch(()=>{});
   toast('Link copied!','success');
+}
+async function shareRoom() {
+  const url = location.href.split('?')[0] + '?join=' + myCode;
+  const shareData = { title: 'PhantomLink Session', text: 'Join my secure P2P session on PhantomLink!', url: url };
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      toast('Shared successfully', 'success');
+    } catch (err) { if (err.name !== 'AbortError') copyCreateLink(); }
+  } else {
+    copyCreateLink();
+  }
 }
 function toggleCreateQR(){
   const w=el('create-qr-wrap');
@@ -1709,7 +1841,7 @@ async function onData(msg){
 function handleCtrl(obj){
   switch(obj.type){
     case 'text':
-      insertMsg('them', 'text', { content: obj.content, time: obj.time||fmtTime() });
+      insertMsg('them', 'text', { id: obj.id, content: obj.content, time: obj.time||fmtTime() });
       break;
     case 'file-meta':
       // FIX: store idNum directly on the pendingReceives entry so binary chunks can find it
@@ -1720,7 +1852,7 @@ function handleCtrl(obj){
       assembleFile(obj.id);
       break;
     case 'code':
-      insertMsg('them', 'code', { lang:obj.lang, content:obj.content, time:obj.time||fmtTime() });
+      insertMsg('them', 'code', { id: obj.id, lang:obj.lang, content:obj.content, time:obj.time||fmtTime() });
       break;
     case 'typing':
       showTheirTyping();
@@ -1728,6 +1860,19 @@ function handleCtrl(obj){
     case 'typing-stop':
       hideTheirTyping();
       break;
+    case 'msg-delete': {
+      const row = el('chat-feed').querySelector(`.msg-row[data-msg-id="${obj.id}"]`);
+      if (row) row.remove();
+      break;
+    }
+    case 'msg-edit': {
+      const row = el('chat-feed').querySelector(`.msg-row[data-msg-id="${obj.id}"]`);
+      if (row) {
+        const bubble = row.querySelector('.bubble');
+        if (bubble) bubble.textContent = obj.content + ' (edited)';
+      }
+      break;
+    }
     case 'sys':
       insertSysEvent(obj.text);
       break;
@@ -1736,6 +1881,23 @@ function handleCtrl(obj){
       const fc = el('fc-'+obj.id);
       if (fc) fc.closest('.msg-row')?.remove();
       toast('File transfer canceled by peer.', 'warn');
+      break;
+    case 'call-end':
+      stopRingingSound();
+      if (incomingCallObj) {
+        incomingCallObj.close();
+        incomingCallObj = null;
+      }
+      el('incoming-call-modal').classList.remove('open');
+      cleanupCallUI();
+      break;
+    case 'call-decline':
+      stopRingingSound();
+      if (currentCall) {
+        currentCall.close();
+      }
+      cleanupCallUI();
+      toast('Call declined by peer.', 'warn');
       break;
     case 'emoji-hello':
     case 'peer-info':
@@ -1797,6 +1959,40 @@ function assembleFile(id){
 }
 
 // ── CALLING ──────────────────────────────────────────────────
+let ringToneCtx = null;
+let ringInterval = null;
+
+function startRingingSound(isIncoming = true) {
+  stopRingingSound();
+  try {
+    if (!ringToneCtx) ringToneCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (ringToneCtx.state === 'suspended') ringToneCtx.resume();
+  } catch(e) { return; }
+
+  const playRing = () => {
+    if(!ringToneCtx) return;
+    const osc1 = ringToneCtx.createOscillator();
+    const osc2 = ringToneCtx.createOscillator();
+    const gainNode = ringToneCtx.createGain();
+    osc1.type = 'sine'; osc2.type = 'sine';
+    osc1.frequency.value = 440; osc2.frequency.value = 480;
+    osc1.connect(gainNode); osc2.connect(gainNode);
+    gainNode.connect(ringToneCtx.destination);
+    gainNode.gain.setValueAtTime(0, ringToneCtx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, ringToneCtx.currentTime + 0.05);
+    gainNode.gain.setValueAtTime(0.3, ringToneCtx.currentTime + 1.95);
+    gainNode.gain.linearRampToValueAtTime(0, ringToneCtx.currentTime + 2.0);
+    osc1.start(ringToneCtx.currentTime); osc2.start(ringToneCtx.currentTime);
+    osc1.stop(ringToneCtx.currentTime + 2.0); osc2.stop(ringToneCtx.currentTime + 2.0);
+  };
+  playRing();
+  ringInterval = setInterval(playRing, 4000);
+}
+
+function stopRingingSound() {
+  if (ringInterval) { clearInterval(ringInterval); ringInterval = null; }
+}
+
 let currentCall = null;
 let localStream = null;
 let callDurationInterval = null;
@@ -1809,6 +2005,7 @@ async function placeCall(type) {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
     localStream = stream;
     const call = myPeer.call(sessionConn.peer, stream, { metadata: { type } });
+    startRingingSound(false);
     setupCall(call, type, true);
   } catch(err) {
     toast('Could not access camera/microphone.', 'error');
@@ -1831,23 +2028,25 @@ function setupCall(call, type, isInitiator) {
   }
 
   call.on('stream', remoteStream => {
-    if (type === 'video') el('remote-video').srcObject = remoteStream;
+    stopRingingSound();
+    el('remote-video').srcObject = remoteStream;
+    if (callDurationInterval) clearInterval(callDurationInterval);
+    callDurationInterval = setInterval(() => {
+      callSeconds++;
+      const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+      const s = (callSeconds % 60).toString().padStart(2, '0');
+      el('call-duration').textContent = `${m}:${s}`;
+    }, 1000);
   });
 
   call.on('close', () => {
+    stopRingingSound();
     cleanupCallUI();
   });
 
-  // Start duration timer
   callSeconds = 0;
   el('call-duration').textContent = '00:00';
   clearInterval(callDurationInterval);
-  callDurationInterval = setInterval(() => {
-    callSeconds++;
-    const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
-    const s = (callSeconds % 60).toString().padStart(2, '0');
-    el('call-duration').textContent = `${m}:${s}`;
-  }, 1000);
 }
 
 function handleIncomingCall(call) {
@@ -1856,10 +2055,18 @@ function handleIncomingCall(call) {
   el('incoming-call-type').textContent = type;
   el('incoming-call-icon').textContent = type === 'video' ? 'videocam' : 'call';
   el('incoming-call-modal').classList.add('open');
+  
+  startRingingSound(true);
+  call.on('close', () => {
+    stopRingingSound();
+    el('incoming-call-modal').classList.remove('open');
+    incomingCallObj = null;
+  });
 }
 
 async function acceptCall() {
   if (!incomingCallObj) return;
+  stopRingingSound();
   el('incoming-call-modal').classList.remove('open');
   const type = incomingCallObj.metadata?.type || 'voice';
   try {
@@ -1876,11 +2083,13 @@ async function acceptCall() {
 }
 
 function declineCall() {
+  stopRingingSound();
   if (incomingCallObj) {
     incomingCallObj.close();
     incomingCallObj = null;
   }
   el('incoming-call-modal').classList.remove('open');
+  ctrl({type: 'call-decline'});
 }
 
 function endCall() {
@@ -1888,9 +2097,11 @@ function endCall() {
     currentCall.close();
   }
   cleanupCallUI();
+  ctrl({type: 'call-end'});
 }
 
 function cleanupCallUI() {
+  stopRingingSound();
   if (localStream) {
     localStream.getTracks().forEach(t => t.stop());
     localStream = null;
@@ -1900,6 +2111,18 @@ function cleanupCallUI() {
   el('remote-video').srcObject = null;
   el('local-video').srcObject = null;
   currentCall = null;
+
+  // Also reset PIP position and visibility
+  const pip = el('local-video-wrap');
+  if (pip) {
+    pip.style.left = '';
+    pip.style.top = '';
+    pip.style.right = '';
+    pip.style.bottom = '';
+    pip.classList.remove('hidden');
+  }
+  const showBtn = el('pip-show-btn');
+  if (showBtn) showBtn.classList.add('hidden');
 }
 
 let callMuted = false;
@@ -1926,21 +2149,185 @@ function toggleCallVideo() {
   }
 }
 
+function toggleCallFullscreen() {
+  const widget = el('call-widget');
+  const icon = el('icon-call-fullscreen');
+  widget.classList.toggle('fullscreen');
+  if (widget.classList.contains('fullscreen')) {
+    icon.textContent = 'fullscreen_exit';
+  } else {
+    icon.textContent = 'fullscreen';
+  }
+}
+
+let sessionQrCreated = false;
+let sessionQrObject = null;
+
+function showSessionQR() {
+  const modal = el('session-qr-modal');
+  const display = el('session-qr-display');
+  const codeText = el('session-qr-code-text');
+  
+  codeText.textContent = myCode;
+  modal.classList.add('open');
+  
+  display.innerHTML = '';
+  const url = location.href.split('?')[0] + '?join=' + myCode;
+  sessionQrObject = new QRCode(display, {
+    text: url,
+    width: 180,
+    height: 180,
+    colorDark: '#0F172A',
+    colorLight: '#FFFFFF',
+    correctLevel: QRCode.CorrectLevel.M
+  });
+}
+
+function closeSessionQRModal() {
+  el('session-qr-modal').classList.remove('open');
+}
+
+function swapCallWindows() {
+  const remote = el('remote-video');
+  const local = el('local-video');
+  const temp = remote.srcObject;
+  remote.srcObject = local.srcObject;
+  local.srcObject = temp;
+}
+
+let isDragging = false;
+let startX, startY;
+let initialX, initialY;
+let dragDistance = 0;
+
+function initPipDrag() {
+  const pip = el('local-video-wrap');
+  const container = el('call-video-container');
+  if (!pip || !container) return;
+
+  pip.addEventListener('mousedown', dragStart);
+  pip.addEventListener('touchstart', dragStart, { passive: false });
+
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('touchmove', drag, { passive: false });
+
+  document.addEventListener('mouseup', dragEnd);
+  document.addEventListener('touchend', dragEnd);
+
+  function dragStart(e) {
+    if (e.target.closest('#pip-hide-btn')) return;
+
+    isDragging = true;
+    dragDistance = 0;
+    
+    const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type === 'touchstart' ? e.touches[0].clientY : e.clientY;
+    
+    const rect = pip.getBoundingClientRect();
+    const parentRect = container.getBoundingClientRect();
+    
+    initialX = rect.left - parentRect.left;
+    initialY = rect.top - parentRect.top;
+    
+    startX = clientX;
+    startY = clientY;
+    
+    pip.style.transition = 'none';
+    
+    pip.style.left = `${initialX}px`;
+    pip.style.top = `${initialY}px`;
+    pip.style.right = 'auto';
+    pip.style.bottom = 'auto';
+    
+    if (e.type === 'touchstart') {
+      e.preventDefault();
+    }
+  }
+
+  function drag(e) {
+    if (!isDragging) return;
+    
+    const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type === 'touchmove' ? e.touches[0].clientY : e.clientY;
+    
+    const dx = clientX - startX;
+    const dy = clientY - startY;
+    
+    dragDistance = Math.sqrt(dx * dx + dy * dy);
+    
+    const containerRect = container.getBoundingClientRect();
+    const pipRect = pip.getBoundingClientRect();
+    
+    let newX = initialX + dx;
+    let newY = initialY + dy;
+    
+    const maxX = containerRect.width - pipRect.width;
+    const maxY = containerRect.height - pipRect.height;
+    
+    newX = Math.max(0, Math.min(newX, maxX));
+    newY = Math.max(0, Math.min(newY, maxY));
+    
+    pip.style.left = `${newX}px`;
+    pip.style.top = `${newY}px`;
+    
+    e.preventDefault();
+  }
+
+  function dragEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    pip.style.transition = '';
+  }
+}
+
+function handlePipClick(event) {
+  if (event.target.closest('#pip-hide-btn')) return;
+  if (dragDistance > 8) return; // ignore swap on drag
+  swapCallWindows();
+}
+
+function hidePip(event) {
+  event.stopPropagation();
+  el('local-video-wrap').classList.add('hidden');
+  el('pip-show-btn').classList.remove('hidden');
+}
+
+function showPip() {
+  const pip = el('local-video-wrap');
+  pip.classList.remove('hidden');
+  el('pip-show-btn').classList.add('hidden');
+  
+  // Reset drag position to default
+  pip.style.left = '';
+  pip.style.top = '';
+  pip.style.right = '';
+  pip.style.bottom = '';
+}
+
 // ── AUDIO RECORDING ──────────────────────────────────────────
 let mediaRecorder = null;
 let audioChunks = [];
 let audioRecordInterval = null;
 let audioRecordSeconds = 0;
+let audioPreviewBlob = null;
 
 async function startAudioRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
+    audioPreviewBlob = null;
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      audioPreviewBlob = new Blob(audioChunks, { type: 'audio/webm' });
+    };
     mediaRecorder.start();
 
     el('audio-record-overlay').classList.add('active');
+    el('btn-audio-stop').classList.remove('hidden');
+    el('btn-audio-send').classList.add('hidden');
+    el('audio-record-dot').style.display = 'block';
+    
     audioRecordSeconds = 0;
     el('audio-record-time').innerText = '00:00';
     audioRecordInterval = setInterval(() => {
@@ -1954,31 +2341,43 @@ async function startAudioRecording() {
   }
 }
 
-function stopAudioRecordingStreams() {
+function stopAudioRecording() {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
     if(mediaRecorder.stream) mediaRecorder.stream.getTracks().forEach(t => t.stop());
   }
   clearInterval(audioRecordInterval);
-  el('audio-record-overlay').classList.remove('active');
+  el('audio-record-dot').style.display = 'none';
+  el('btn-audio-stop').classList.add('hidden');
+  el('btn-audio-send').classList.remove('hidden');
 }
 
 function cancelAudioRecording() {
-  stopAudioRecordingStreams();
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+    if(mediaRecorder.stream) mediaRecorder.stream.getTracks().forEach(t => t.stop());
+  }
+  clearInterval(audioRecordInterval);
   audioChunks = [];
+  audioPreviewBlob = null;
+  el('audio-record-overlay').classList.remove('active');
 }
 
 function finishAndSendAudio() {
-  if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
-  
-  mediaRecorder.onstop = () => {
-    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-    const file = new File([audioBlob], `Voice_Message_${uid()}.webm`, { type: 'audio/webm' });
+  if (audioPreviewBlob) {
+    const file = new File([audioPreviewBlob], `Voice_Message_${uid()}.webm`, { type: 'audio/webm' });
     sendFile(file);
-    audioChunks = [];
-  };
-  
-  stopAudioRecordingStreams();
+  } else if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      const file = new File([audioBlob], `Voice_Message_${uid()}.webm`, { type: 'audio/webm' });
+      sendFile(file);
+    };
+    stopAudioRecording();
+  }
+  audioChunks = [];
+  audioPreviewBlob = null;
+  el('audio-record-overlay').classList.remove('active');
 }
 
 // ── SEND FUNCTIONS ────────────────────────────────────────────
@@ -1996,8 +2395,9 @@ function sendMessage(){
   if(!sessionConn||!sessionConn.open){ toast('Not connected.','error'); return; }
 
   if(txt){
-    ctrl({type:'text',content:txt,time:fmtTime()});
-    insertMsg('sent','text',{content:txt,time:fmtTime()});
+    const msgId = uid();
+    ctrl({type:'text', id: msgId, content:txt,time:fmtTime()});
+    insertMsg('sent','text',{id: msgId, content:txt,time:fmtTime()});
     input.value=''; input.style.height='';
     ctrl({type:'typing-stop'});
     clearTimeout(typingTimer);
@@ -2087,8 +2487,9 @@ function sendCode(){
   const content=ta.value.trim();
   if(!content){ toast('Write some code first.','warn'); return; }
   const lang=el('code-lang-select').value;
-  ctrl({type:'code',lang,content,time:fmtTime()});
-  insertMsg('sent','code',{lang,content,time:fmtTime()});
+  const msgId = uid();
+  ctrl({type:'code',id:msgId,lang,content,time:fmtTime()});
+  insertMsg('sent','code',{id:msgId,lang,content,time:fmtTime()});
   ta.value='';
   toggleCodePanel();
 }
@@ -2130,6 +2531,57 @@ function insertSysEvent(text){
   scrollFeed();
 }
 
+function deleteMsg(msgId) {
+  const row = el('chat-feed').querySelector(`.msg-row[data-msg-id="${msgId}"]`);
+  if (row) row.remove();
+  ctrl({type: 'msg-delete', id: msgId});
+}
+
+function startEditMsg(msgId) {
+  const row = el('chat-feed').querySelector(`.msg-row[data-msg-id="${msgId}"]`);
+  if (!row) return;
+  const contentDiv = row.querySelector('.bubble');
+  if (!contentDiv) return;
+  row.dataset.originalHtml = contentDiv.innerHTML;
+  const currentText = contentDiv.textContent.replace(/\(edited\)$/, '').trim();
+  contentDiv.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:4px; width:100%; min-width:180px;">
+      <input type="text" class="edit-msg-input" value="${escapeHtml(currentText)}" style="width:100%; padding:4px 8px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:var(--font-sans); outline:none;" />
+      <div style="display:flex; justify-content:flex-end; gap:4px;">
+        <button onclick="cancelEditMsg('${msgId}')" style="font-size:11px; padding:2px 8px; border-radius:4px; border:1px solid var(--border); background:transparent; color:var(--text); cursor:pointer;">Cancel</button>
+        <button onclick="saveEditMsg('${msgId}')" style="font-size:11px; padding:2px 8px; border-radius:4px; border:none; background:var(--primary); color:white; cursor:pointer;">Save</button>
+      </div>
+    </div>
+  `;
+  const input = contentDiv.querySelector('input');
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveEditMsg(msgId);
+    if (e.key === 'Escape') cancelEditMsg(msgId);
+  });
+}
+
+function cancelEditMsg(msgId) {
+  const row = el('chat-feed').querySelector(`.msg-row[data-msg-id="${msgId}"]`);
+  if (!row || !row.dataset.originalHtml) return;
+  const contentDiv = row.querySelector('.bubble');
+  if (contentDiv) contentDiv.innerHTML = row.dataset.originalHtml;
+}
+
+function saveEditMsg(msgId) {
+  const row = el('chat-feed').querySelector(`.msg-row[data-msg-id="${msgId}"]`);
+  if (!row) return;
+  const contentDiv = row.querySelector('.bubble');
+  const input = contentDiv?.querySelector('.edit-msg-input');
+  if (!input) return;
+  const newContent = input.value.trim();
+  if (!newContent) { cancelEditMsg(msgId); return; }
+  contentDiv.innerHTML = '';
+  contentDiv.textContent = newContent + ' (edited)';
+  ctrl({type: 'msg-edit', id: msgId, content: newContent});
+}
+
 function getFileColor(mime){
   if(!mime)return'#64748B';
   if(mime.startsWith('image'))return'#4F9EFF';
@@ -2169,12 +2621,19 @@ function insertMsg(who, kind, data){
 
   let inner='';
 
+  const editBtnHTML = isSent && kind === 'text' ? `<button class="msg-edit-btn" title="Edit message" onclick="startEditMsg('${row.dataset.msgId}')" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:0"><span class="material-icons-round" style="font-size:16px">edit</span></button>` : '';
+  const deleteBtnHTML = isSent ? `<button class="msg-delete-btn" title="Delete message" onclick="deleteMsg('${row.dataset.msgId}')" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:0"><span class="material-icons-round" style="font-size:16px">delete</span></button>` : '';
+
   if(kind==='text'){
     inner=`
       ${avatar}
       <div class="msg-content">
         <div class="bubble ${isSent?'sent':'them'}">${escapeHtml(data.content)}</div>
-        <div class="msg-time">${data.time}</div>
+        <div style="display:flex; justify-content:${isSent?'flex-end':'flex-start'}; align-items:center; gap:8px;">
+          <div class="msg-time">${data.time}</div>
+          ${editBtnHTML}
+          ${deleteBtnHTML}
+        </div>
       </div>`;
   }
   else if(kind==='file-incoming'||kind==='file-sending'){
@@ -2183,7 +2642,10 @@ function insertMsg(who, kind, data){
       ${avatar}
       <div class="msg-content">
         ${buildFileCard(m, null, data.id, kind==='file-sending')}
-        <div class="msg-time">${data.time}</div>
+        <div style="display:flex; justify-content:${isSent?'flex-end':'flex-start'}; align-items:center; gap:8px;">
+          <div class="msg-time">${data.time}</div>
+          ${deleteBtnHTML}
+        </div>
       </div>`;
   }
   else if(kind==='code'){
@@ -2203,7 +2665,10 @@ function insertMsg(who, kind, data){
           </div>
           <div class="code-card-body"><pre class="hljs"><code>${highlighted}</code></pre></div>
         </div>
-        <div class="msg-time">${data.time}</div>
+        <div style="display:flex; justify-content:${isSent?'flex-end':'flex-start'}; align-items:center; gap:8px;">
+          <div class="msg-time">${data.time}</div>
+          ${deleteBtnHTML}
+        </div>
       </div>`;
   }
 
@@ -2235,6 +2700,12 @@ function buildFileCard(meta, url, id, isSending){
 
   const downloadBtn = url
     ? `<a href="${url}" download="${escapeHtml(meta.name)}" class="btn-icon" title="Download" style="flex-shrink:0"><span class="material-icons-round" style="font-size:18px;color:var(--accent)">download</span></a>`
+    : '';
+
+  const shareBtn = url
+    ? `<button class="btn-icon" style="flex-shrink:0; margin-left:6px;" onclick="shareFile('${id}')" title="Share file">
+         <span class="material-icons-round" style="font-size:18px;color:var(--primary)">share</span>
+       </button>`
     : '';
 
   const controls = isSending && !url
@@ -2274,6 +2745,7 @@ function buildFileCard(meta, url, id, isSending){
         <div class="file-card-meta">${fmtBytes(meta.size)} · ${mime||'file'}</div>
       </div>
       ${downloadBtn}
+      ${shareBtn}
       ${deleteBtn}
     </div>
     ${progressBar}
@@ -2305,6 +2777,34 @@ function copyCodeSnippet(btn){
 }
 
 function escapeHtml(t){ return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+async function shareFile(id) {
+  const fileData = sharedFilesCache.find(f => f.id === id);
+  if (!fileData || !fileData.url) {
+    toast('File not found or not fully received.', 'error');
+    return;
+  }
+  try {
+    toast('Preparing file for sharing...', 'info');
+    const res = await fetch(fileData.url);
+    const blob = await res.blob();
+    const file = new File([blob], fileData.name, { type: fileData.mime || 'application/octet-stream' });
+    
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: fileData.name,
+      });
+      toast('Shared successfully', 'success');
+    } else {
+      toast('File sharing is not supported on this device/browser.', 'error');
+    }
+  } catch(err) {
+    if (err.name !== 'AbortError') {
+      toast('Failed to share file.', 'error');
+    }
+  }
+}
 
 // ── FILE ACTIONS (PAUSE, CANCEL, DELETE) ─────────────────────
 function pauseResumeFile(id) {
@@ -2488,6 +2988,7 @@ function closeEndSessionModal(){
 
 function confirmEndSession(){
   closeEndSessionModal();
+  cleanupCallUI();
   ctrl({type:'sys',text:'Peer ended the session.'});
   setTimeout(()=>{
     if(sessionConn){try{sessionConn.close();}catch(e){}}
@@ -2503,6 +3004,8 @@ function confirmEndSession(){
     el('code-compose-ta').value='';
     if(codePanel)toggleCodePanel();
     qrCreated=false; myCode='';
+    sessionQrCreated=false;
+    el('session-qr-display').innerHTML='';
     el('create-code-value').textContent='······'; el('create-code-value').classList.add('loading');
     el('create-qr-wrap').classList.add('hidden');
     el('create-qr').innerHTML='';
@@ -2518,7 +3021,7 @@ function confirmEndSession(){
 // ── LIGHTBOX ──────────────────────────────────────────────────
 function openLightbox(url){ el('lightbox-img').src=url; el('lightbox').classList.add('open'); }
 function closeLightbox(){ el('lightbox').classList.remove('open'); el('lightbox-img').src=''; }
-document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeLightbox(); closeQRScanner(); closeEndSessionModal(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeLightbox(); closeQRScanner(); closeEndSessionModal(); closeSessionQRModal(); } });
 
 // ── QR SCANNER ───────────────────────────────────────────────
 function openQRScanner(){
